@@ -5,7 +5,7 @@ from __future__ import unicode_literals
 维吉尼亚密码破解
 """
 from pycipher import Vigenere
-from magnetos.utils import get_raw_plain_text
+from magnetos.util import get_raw_plain_text
 
 import re
 

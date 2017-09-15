@@ -12,7 +12,7 @@ from optparse import OptionParser
 
 from future.moves.urllib.parse import unquote_plus
 from mountains import PY3, PY2
-from mountains.encoding import force_bytes, utf8
+from mountains.encoding import force_bytes, utf8, to_unicode
 
 if PY3:
     from base64 import b85decode, a85decode
@@ -39,6 +39,7 @@ encode_methods = [
     'octal_ascii',
     # 十进制数字的 ascii 字符串
     'decimal_ascii',
+    'decimal',  # 10 进制数据，转成16进制
     'zlib',
     'pawn_shop',  # 当铺密码
     'switch_case',  # 大小写交换
@@ -58,7 +59,7 @@ parser.add_option("-s", "--save file name", dest="save_file_name", type="string"
 parser.add_option("-m", "--decode method list", dest="method_list", type="string",
                   help="decode method list, base64->hex")
 parser.add_option("-x", "--only_printable", dest="only_printable", default=False,
-                  action="store_false", help="only printable output")
+                  action="store_true", help="only printable output")
 parser.add_option("-v", "--verbose", dest="verbose", default=False,
                   action="store_true", help="verbose")
 
@@ -163,7 +164,12 @@ class WhatEncode(object):
 
                 if len(decode_str) < 0:
                     return False, raw_encode_str
-
+            elif decode_method == 'decimal':
+                rex = re.compile('^[0-9]+$', re.MULTILINE)
+                if not rex.match(encode_str):
+                    return False, raw_encode_str
+                # 解码后是 0xab1234，需要去掉前面的 0x
+                decode_str = hex(int(encode_str))[2:].rstrip('L')
             elif decode_method == 'binary':
                 rex = re.compile('^[0-1]+$', re.MULTILINE)
                 if not rex.match(encode_str):

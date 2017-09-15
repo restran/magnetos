@@ -6,7 +6,7 @@ Toolkit for security scripts developing.
 
 安装最新的 setuptools
 
-    pip install -U pip setuptools twine
+    pip3 install -U pip setuptools twine
 
 生成 wheel 包
 
@@ -16,3 +16,8 @@ Toolkit for security scripts developing.
 
     python3 setup.py register sdist upload
 
+
+## 通过 setup install 安装后删除
+
+    python3 setup.py install --record files.txt
+    cat files.txt | xargs rm -rf

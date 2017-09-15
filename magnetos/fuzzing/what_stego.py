@@ -12,6 +12,7 @@ import traceback
 import zipfile
 from optparse import OptionParser
 from mountains.encoding import to_unicode
+
 parser = OptionParser()
 parser.add_option("-f", "--file name", dest="file_name", type="string",
                   help="read from file")
@@ -358,7 +359,7 @@ class WhatStego(object):
         self.log('run what_format')
         out_path = os.path.join(self.output_path, 'what_format')
         self.remove_dir(out_path)
-        cmd = 'python what_format.py %s %s' % (self.file_path, out_path)
+        cmd = 'what_format %s %s' % (self.file_path, out_path)
         stdout = self.run_shell_cmd(cmd)
         self.log(stdout)
 

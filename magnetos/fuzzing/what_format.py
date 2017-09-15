@@ -6,10 +6,11 @@ import os
 import sys
 import binascii
 import traceback
+from mountains.encoding import utf8
 
 # 当前项目所在路径
 BASE_PATH = os.path.dirname(os.path.abspath(__file__))
-dict_data = os.path.join(BASE_PATH, 'what_format.dic')
+dict_data = os.path.join(BASE_PATH, 'data/what_format.dic')
 
 
 def usage():
@@ -64,7 +65,7 @@ class WhatFormat(object):
         result = []
         tmp_start = start
         while True:
-            code = hex_data.find(match, tmp_start)
+            code = hex_data.find(utf8(match), tmp_start)
             if code == -1:
                 return result
             else:
@@ -79,7 +80,7 @@ class WhatFormat(object):
             ext, des, hex_start, hex_end = d
             start = 0
             while True:
-                code_start = hex_data.find(hex_start, start)
+                code_start = hex_data.find(utf8(hex_start), start)
                 if code_start != -1:
                     start = code_start + 1
                     if hex_end != '':

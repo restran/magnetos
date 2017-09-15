@@ -40,7 +40,7 @@ with open('README.rst', 'w') as outfile:
 long_description = z
 
 setup(
-    name='mountains',  # 文件名
+    name='magnetos',  # 文件名
     version=__version__,  # 版本(每次更新上传 pypi 需要修改)
     description="Toolkit for security scripts developing.",
     long_description=long_description,  # 放README.md文件，方便在 pypi 页展示
@@ -68,7 +68,8 @@ setup(
             'what_format = magnetos.fuzzing.what_format:main',
             'find_code_scheme = magnetos.fuzzing.find_code_scheme:main',
             'what_encode = magnetos.fuzzing.what_encode:main',
-            'what_stego = magnetos.fuzzing.what_stego:main'
+            'what_stego = magnetos.fuzzing.what_stego:main',
+            'file_hash_check = magnetos.util.file_hash_check:main',
         ],
     },
     **kwargs
