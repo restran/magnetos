@@ -1,0 +1,44 @@
+#http://file-extension.net/seeker/
+#extension  ::  description ::  hex_start :: hex_end
+# 虽然 jpg 的文件尾部是 FFD9，但是后面追加内容后还是可以查看，图片查看器会忽略
+# 因为 FFD9 很容易出现，为了不出现分离出很多 jpg 图片的问题，不考虑文件尾
+#jpg ::  JFIF-EXIF JPEG Bitmap       ::  FF D8 FF :: FF D9
+jpg ::  JFIF-EXIF JPEG Bitmap       ::  FF D8 FF ::
+png ::  Portable Network Graphics   ::  89 50 4E 47  :: AE 42 60 82
+zip ::  ZIP compressed archive      ::  50 4B 03 04 ::
+7z  ::  7-Zip compressed archive    ::  37 7A BC AF 27 1C  ::
+gif ::  GIF Bitmap (generic)        ::  47 49 46 :: 00 3B
+tif ::  Tagged Image File Format (TIFF)  :: 49 49 2A 00 ::
+tiff::  BigTIFF bitmap :: 4D 4D 00 2B ::
+tiff::  OME-TIFF bitmap (big endian) :: 4D 4D 00 ::
+rar ::  RAR Archive                 ::  52 61 72 21 1A ::
+exe ::  Executable File (Microsoft Corporation)    ::  4D 5A 90 00::
+#mp3 :: MP3 audio (ID3 v1.x tag)    ::  FF ::
+mp3 ::  MP3 audio (ID3 v2.x tag)    ::  49 44 33 ::
+avi ::  AVI Audio Video Interleaved    ::  52 49 46 46 ::
+pyc ::  Python 2.7.x bytecode      :: 03 f3 0d 0a  ::
+pyc ::  Python 3.5.x bytecode      :: 16 0D 0D 0A ::
+bmp ::  AWBM Award BIOS bitmap     :: 41 57 42 4D   ::
+bmp ::  Windows Bitmap      ::  42 4D  ::
+wav ::  RIFF/WAVe standard Audio    ::  52 49 46 46   ::
+wav ::  Infinity Engine sound (v1.0) :: 57 41 56 43 56 31 2E 30 ::
+doc/ppt/xls/msi ::   Microsoft Word document/Microsoft PowerPoint document/Microsoft Excel sheet/Microsoft Windows Installer    ::   D0 CF 11 E0 A1 B1 1A E1  ::
+dll ::  Win32 Dynamic Link Library - Borland C/C++ ::   4D 5A 50 00 02 00 00 00 04 00 0F 00 FF FF 00 00  ::
+psd ::  Adobe PhotoShop image      ::  38 42 50 53 00 01 00 00 00 00 00 00 00  ::
+wmv ::  Windows Media (generic)     ::   30 26 B2 75 8E 66 CF 11 A6 D9 00 AA 00 62 CE 6C ::
+flv ::  Flash Video     ::  46 4C 56 01   ::
+pdf ::  Adobe Portable Document Format ::  25 50 44 46 2D  ::
+pdf ::  GraphiCode Programmable Device Format   ::   AF 01 00  ::
+mdb ::  Microsoft Jet DB :: 00 01 00 00 53 74 61 6E 64 61 72 64 20 4A 65 74 ::
+eml ::  E-Mail message (Var. 9) :: 52 65 74 75 72 6E 2D 52 65 63 65 69 70 74 2D 54 ::
+eml ::  E-Mail message (Var. 7) :: 44 65 6C 69 76 65 72 65 64 2D 54 6F 3A 20 ::
+eml ::  E-Mail message (Var. 1) :: 52 65 74 75 72 6E 2D ::
+xml ::  eXtensible Markup Language :: 3C 3F 78 6D 6C ::
+rtf ::  Rich Text Format :: 7B 5C 72 74 66 ::
+gz  ::  GZipped data :: 1F 8B 08 ::
+jar ::  JARCS compressed archive :: 4A 41 52 43 53 00 ::
+jar ::  JAR Archive File :: 5F 27 A8 89 ::
+mp4 ::  Native Instruments Stems audio :: 00 00 00 14 66 74 79 70 69 73 6F 6D 00 00 00 01 ::
+mp4 ::  MPEG-4 video files :: 00 00 00 18 66 74 79 70 33 67 70 35 ::
+pcap::  TCPDUMP's style capture :: D4 C3 B2 A1 ::
+pcapng :: Wireshark PCAP Next Generation Dump File Format :: 0A 0D 0D 0A ::
