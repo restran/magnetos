@@ -11,7 +11,7 @@ import subprocess
 import traceback
 import zipfile
 from optparse import OptionParser
-from mountains.encoding import to_unicode
+from mountains.encoding import to_unicode, utf8
 
 parser = OptionParser()
 parser.add_option("-f", "--file name", dest="file_name", type="string",
@@ -20,6 +20,8 @@ parser.add_option("-f", "--file name", dest="file_name", type="string",
 """
 自动检测文件可能的隐写，需要在Linux下使用 Python3 运行
 一些依赖还需要手动安装
+
+TODO 文件中可见字符的处理，对于 \00 这种分隔开的字符，需要能够分离
 """
 
 
@@ -61,8 +63,9 @@ class WhatStego(object):
         re_list = [
             # (r'(?:key|flag|ctf)\{[^\{\}]{3,35}\}', re.I),
             # (r'(?:key|KEY|flag|FLAG|ctf|CTF)+[\x20-\x7E]{3,50}', re.I),
-            (r'(?:key|flag|ctf)[\x20-\x7E]{5,35}', re.I),
-            (r'(?:key|flag|ctf)[\x20-\x7E]{0,3}(?::|=|\{|is)[\x20-\x7E]{,35}', re.I)
+            (r'(?:key|flag|ctf)[\x20-\x7E]{5,40}', re.I),
+            (r'(?:key|flag|ctf)[\x20-\x7E]{0,3}(?::|=|\{|is)[\x20-\x7E]{,40}', re.I),
+            (r'[a-zA-Z0-9]{32}', re.I)
         ]
 
         result_dict = {}
@@ -128,6 +131,9 @@ class WhatStego(object):
             cmd = 'pngcheck -vv %s' % self.file_path
             stdout = self.run_shell_cmd(cmd)
             self.log(stdout)
+            if 'CRC error' in stdout:
+                self.result_list.append('[*] PNG 文件 CRC 错误，请检查图片的大小是否有被修改')
+
             out_list = stdout.split('\n')
             last_length = None
             for t in out_list:
@@ -146,8 +152,8 @@ class WhatStego(object):
 
     def log(self, text):
         print(text)
-        self.log_file.write(text)
-        self.log_file.write('\n')
+        self.log_file.write(utf8(text))
+        self.log_file.write(b'\n')
 
     def check_file(self):
         self.log('\n--------------------')

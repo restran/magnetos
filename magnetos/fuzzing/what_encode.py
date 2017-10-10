@@ -6,14 +6,23 @@ import hashlib
 import re
 import string
 import traceback
+import zlib
 from base64 import b32decode, b16decode, b64decode
 from copy import deepcopy
 from optparse import OptionParser
 
 from future.moves.urllib.parse import unquote_plus
 from mountains import PY3, PY2
+from mountains import logging
+from mountains.logging import StreamHandler
 from mountains.encoding import force_bytes, utf8, to_unicode
+from magnetos.util.converter import partial_base64_decode, \
+    partial_base32_decode, partial_base16_decode, base_padding, hex2str
 
+logger = logging.getLogger(__name__)
+logging.init_log(StreamHandler(level=logging.DEBUG,
+                               format=logging.FORMAT_VERBOSE,
+                               datefmt=logging.DATE_FMT_SIMPLE))
 if PY3:
     from base64 import b85decode, a85decode
 
@@ -58,8 +67,8 @@ parser.add_option("-s", "--save file name", dest="save_file_name", type="string"
                   help="save decoded data to file")
 parser.add_option("-m", "--decode method list", dest="method_list", type="string",
                   help="decode method list, base64->hex")
-parser.add_option("-x", "--only_printable", dest="only_printable", default=False,
-                  action="store_true", help="only printable output")
+parser.add_option("-x", "--only_printable", dest="only_printable", default=True,
+                  action="store_false", help="disable only printable output")
 parser.add_option("-v", "--verbose", dest="verbose", default=False,
                   action="store_true", help="verbose")
 
@@ -67,7 +76,7 @@ parser.add_option("-v", "--verbose", dest="verbose", default=False,
 class WhatEncode(object):
     def __init__(self, data_str, method_list=None, file_name=None,
                  save_file_name=None, only_printable=False,
-                 printable_percent=0.8, verbose=False):
+                 printable_percent=1.0, max_depth=10, verbose=False):
         """
 
         :param data_str:
@@ -85,63 +94,104 @@ class WhatEncode(object):
         self.only_printable = only_printable
         self.printable_percent = printable_percent
         self.verbose = verbose
+        self.max_depth = max_depth
 
         if self.file_name is not None:
             with open(self.file_name, 'rb') as f:
                 self.data_str = f.read()
 
+    @classmethod
+    def regex_match(cls, regex, encode_str):
+        try:
+            return regex.match(to_unicode(encode_str))
+        except:
+            print(encode_str)
+            return False
+
     def parse_str(self, encode_str, decode_method, m_list):
+        if len(m_list) > self.max_depth:
+            return False, encode_str
+
         # encode_str = deepcopy(encode_str)
         encode_str = utf8(encode_str)
+        if decode_method in ['zlib']:
+            encode_str = utf8(encode_str)
+        else:
+            encode_str = to_unicode(encode_str)
+
         raw_encode_str = deepcopy(encode_str)
         if len(encode_str) <= 0:
             return False, raw_encode_str
+
         try:
             if decode_method == 'base16':
-                decode_str = b16decode(encode_str)
+                # 避免无限递归
+                base_list = ('base16', 'base32', 'base64', 'urlsafe_b64')
+                if (len(m_list) > 0 and m_list[-1] in base_list) or len(encode_str) < 4:
+                    return False, raw_encode_str
+
+                encode_str = encode_str.upper()
+                rex = re.compile('^[0-9A-F]+[=]{0,2}$', re.MULTILINE)
+                if self.regex_match(rex, encode_str):
+                    decode_str = partial_base16_decode(encode_str)
+                else:
+                    return False, raw_encode_str
             elif decode_method == 'base32':
+                # 避免无限递归
+                base_list = ('base16', 'base32', 'base64', 'urlsafe_b64')
+                if (len(m_list) > 0 and m_list[-1] in base_list) or len(encode_str) < 4:
+                    return False, raw_encode_str
+
                 rex = re.compile('^[A-Z2-7]+[=]{0,2}$', re.MULTILINE)
                 # 自动纠正填充
-                if rex.match(encode_str):
-                    padding_length = (3 - len(encode_str) % 3) % 3
-                    encode_str = '%s%s' % (encode_str, '='.join(range(padding_length)))
-                    decode_str = b32decode(encode_str)
+                if self.regex_match(rex, encode_str):
+                    decode_str = partial_base32_decode(encode_str)
                 else:
                     return False, raw_encode_str
             elif decode_method == 'base64':
+                # 避免无限递归
+                base_list = ('base16', 'base32', 'base64', 'urlsafe_b64')
+                if (len(m_list) > 0 and m_list[-1] in base_list) or len(encode_str) < 4:
+                    return False, raw_encode_str
+
                 rex = re.compile('^[A-Za-z0-9+/]+[=]{0,2}$', re.MULTILINE)
                 # 自动纠正填充
-                if rex.match(encode_str):
-                    padding_length = (4 - len(encode_str) % 4) % 4
-                    encode_str = '%s%s' % (encode_str, ''.join(['=' for _ in range(padding_length)]))
-                    decode_str = b64decode(encode_str)
+                if self.regex_match(rex, encode_str):
+                    decode_str = partial_base64_decode(encode_str)
                 else:
                     return False, raw_encode_str
             elif decode_method == 'urlsafe_b64':
+                if len(m_list) > 0 and m_list[-1] in ('base16', 'base32', 'base64', 'urlsafe_b64') \
+                        and len(encode_str) < 4:
+                    return False, raw_encode_str
                 rex = re.compile('^[A-Za-z0-9-_]+[=]{0,2}$', re.MULTILINE)
                 # 自动纠正填充
-                if rex.match(encode_str):
-                    padding_length = (4 - len(encode_str) % 4) % 4
-                    encode_str = '%s%s' % (encode_str, ''.join(['=' for _ in range(padding_length)]))
-                    decode_str = b64decode(encode_str)
+                if self.regex_match(rex, encode_str):
+                    decode_str = b64decode(base_padding(encode_str, 4))
                 else:
                     return False, raw_encode_str
             elif decode_method == 'ascii_85':
+                if len(encode_str) < 7:
+                    return False, raw_encode_str
+
                 if PY2:
                     return False, raw_encode_str
 
                 rex = re.compile('^[A-Za-z0-9!#$%&()*+\-;<=>?@^_`{|}~]+$', re.MULTILINE)
-                if rex.match(encode_str):
-                    decode_str = a85decode(encode_str)
+                if self.regex_match(rex, encode_str):
+                    decode_str = a85decode(utf8(encode_str))
                 else:
                     return False, encode_str
             elif decode_method == 'base85':
+                if len(encode_str) < 7:
+                    return False, raw_encode_str
+
                 if PY2:
                     return False, raw_encode_str
 
                 rex = re.compile('^[A-Za-z0-9!#$%&()*+\-;<=>?@^_`{|}~]+$', re.MULTILINE)
-                if rex.match(encode_str):
-                    decode_str = b85decode(encode_str)
+                if self.regex_match(rex, encode_str):
+                    decode_str = b85decode(utf8(encode_str))
                 else:
                     return False, encode_str
 
@@ -151,6 +201,7 @@ class WhatEncode(object):
                 except:
                     pass
 
+                encode_str = to_unicode(encode_str)
                 encode_str = encode_str.replace(' ', '').strip()
                 code_base = '口由中人工大王夫井羊'
                 decode_str = []
@@ -165,26 +216,35 @@ class WhatEncode(object):
                 if len(decode_str) < 0:
                     return False, raw_encode_str
             elif decode_method == 'decimal':
+                if len(encode_str) < 4:
+                    return False, raw_encode_str
+
                 rex = re.compile('^[0-9]+$', re.MULTILINE)
-                if not rex.match(encode_str):
+                if not self.regex_match(rex, encode_str):
                     return False, raw_encode_str
                 # 解码后是 0xab1234，需要去掉前面的 0x
                 decode_str = hex(int(encode_str))[2:].rstrip('L')
             elif decode_method == 'binary':
                 rex = re.compile('^[0-1]+$', re.MULTILINE)
-                if not rex.match(encode_str):
+                if not self.regex_match(rex, encode_str):
                     return False, raw_encode_str
 
                 # 不足8个的，在后面填充0
                 padding_length = (8 - len(encode_str) % 8) % 8
-                encode_str = '%s%s' % (encode_str, ''.join(['0' for _ in range(padding_length)]))
-
+                encode_str = '%s%s' % (encode_str, '0' * padding_length)
                 # 解码后是 0xab1234，需要去掉前面的 0x
                 decode_str = hex(int(encode_str, 2))[2:].rstrip('L')
             elif decode_method in ['octal', 'octal_ascii', 'octal_binary']:
                 # 8进制转成16进制的数据
                 rex = re.compile('^[0-7]+$', re.MULTILINE)
-                if not rex.match(encode_str):
+                if not self.regex_match(rex, encode_str):
+                    return False, raw_encode_str
+
+                rex = re.compile('^[0-1]+$', re.MULTILINE)
+                if self.regex_match(rex, encode_str):
+                    return False, raw_encode_str
+
+                if len(encode_str) < 4:
                     return False, raw_encode_str
 
                 if decode_method == 'octal':
@@ -203,26 +263,30 @@ class WhatEncode(object):
                         else:
                             tmp_list = tmp_list[3:]
                         ascii_list.append(chr(int(tmp_str, 8)))
-                    decode_str = b''.join(ascii_list)
+                    decode_str = ''.join(ascii_list)
                 elif decode_method == 'octal_binary':
-                    # 避免无限递归
-                    if len(m_list) > 0 and m_list[-1] in ['octal_binary']:
+                    # 因为这里有补0的操作，要避免无限递归
+                    if len(m_list) > 0 and \
+                            (m_list[-1] in ('octal_binary', 'octal', 'binary')
+                             or len(encode_str) < 8):
                         return False, raw_encode_str
 
                     # 将8进制直接转成16进制，也就是3个8进制数字转成2个16进制字符
                     # 先将每个8进制数字转成二进制，不足3个的前面补0
                     encode_str = encode_str.replace(' ', '').strip()
                     tmp_bin_list = ['%03d' % int(bin(int(t))[2:]) for t in list(encode_str)]
-                    tmp_bin_list = [force_bytes(t) for t in tmp_bin_list]
-                    # print(tmp_bin_list)
-                    decode_str = b''.join(tmp_bin_list)
+                    tmp_bin_list = [t for t in tmp_bin_list]
+                    # logger.info(tmp_bin_list)
+                    decode_str = ''.join(tmp_bin_list)
                 else:
                     return False, raw_encode_str
             elif decode_method == 'decimal_ascii':
-                encode_str = encode_str.replace(' ', '').strip()
+                if len(encode_str) < 4:
+                    return False, raw_encode_str
 
+                encode_str = encode_str.replace(' ', '').strip()
                 rex = re.compile('^[0-9]+$', re.MULTILINE)
-                if not rex.match(encode_str):
+                if not self.regex_match(rex, encode_str):
                     return False, raw_encode_str
 
                 # ascii 字符串，10进制最大127
@@ -236,7 +300,7 @@ class WhatEncode(object):
                     else:
                         tmp_list = tmp_list[3:]
                     ascii_list.append(chr(int(tmp_str)))
-                decode_str = b''.join(ascii_list)
+                decode_str = ''.join(ascii_list)
 
             elif decode_method in ['switch_case', 'reverse_alphabet']:
                 # 如果这里不做限制，会无限递归下去
@@ -248,8 +312,8 @@ class WhatEncode(object):
                 if len(tmp_data) <= 0:
                     return False, raw_encode_str
 
-                b64rex = re.compile('^[A-Za-z0-9+/]+[=]{0,2}$', re.MULTILINE)
-                if not b64rex.match(encode_str):
+                rex = re.compile('^[A-Za-z0-9+/]+[=]{0,2}$', re.MULTILINE)
+                if not self.regex_match(rex, encode_str):
                     return False, raw_encode_str
 
                 if decode_method == 'switch_case':
@@ -260,7 +324,7 @@ class WhatEncode(object):
                         elif t in string.ascii_uppercase:
                             t = t.lower()
                         new_data.append(t)
-                    decode_str = b''.join(new_data)
+                    decode_str = ''.join(new_data)
                 elif decode_method == 'reverse_alphabet':
                     # 字母逆序，a->z, z->a
                     new_data = []
@@ -273,20 +337,35 @@ class WhatEncode(object):
                                 t = ord(t) + (25 - (ord(t) - ord('A')) * 2)
                                 t = chr(t)
                         new_data.append(t)
-                    decode_str = b''.join(new_data)
+                    decode_str = ''.join(new_data)
                 else:
                     return False, raw_encode_str
             elif decode_method == 'urlencode':
+                if len(encode_str) < 4:
+                    return False, raw_encode_str
+
                 decode_str = unquote_plus(encode_str)
             elif decode_method == 'hex':
-                rex = re.compile('^[A-Fa-f0-9]+$', re.MULTILINE)
-                if rex.match(encode_str.lower()):
+                if len(encode_str) < 4:
+                    return False, raw_encode_str
+
+                encode_str = encode_str.lower()
+                rex = re.compile('^[a-f0-9]+$', re.MULTILINE)
+                if self.regex_match(rex, encode_str.lower()):
                     # 修正基数位数的16进制数据
                     if len(encode_str) % 2 != 0:
                         encode_str += '0'
 
-                    decode_str = encode_str.decode('hex')
+                    decode_str = hex2str(encode_str)
                 else:
+                    return False, raw_encode_str
+            elif decode_method == 'zlib':
+                if len(encode_str) < 4:
+                    return False, raw_encode_str
+
+                try:
+                    decode_str = zlib.decompress(utf8(encode_str))
+                except:
                     return False, raw_encode_str
             else:
                 decode_str = encode_str.decode(decode_method)
@@ -296,12 +375,16 @@ class WhatEncode(object):
             elif utf8(encode_str) == utf8(decode_str):
                 return False, raw_encode_str
             else:
+
                 # 解码的内容只有可打印字符，才认为合法
                 if self.only_printable:
+                    decode_str = to_unicode(decode_str)
+                    if isinstance(decode_str, bytes):
+                        return False, raw_encode_str
                     tmp_decode_str = list(decode_str)
                     printable_count = 0
                     for t in tmp_decode_str:
-                        if t in string.printable:
+                        if str(t) in string.printable:
                             printable_count += 1
 
                     # 如果可打印字符低于一定的百分比，就认为解码失败
@@ -311,8 +394,8 @@ class WhatEncode(object):
                 return True, decode_str
         except Exception as e:
             if self.verbose:
-                print(e)
-                print(traceback.format_exc())
+                logger.info(e)
+                logger.info(traceback.format_exc())
             return False, raw_encode_str
 
     def parse(self):
@@ -333,6 +416,7 @@ class WhatEncode(object):
                 data = item['data']
                 has_print = False
                 for i, m in enumerate(encode_methods):
+
                     tmp_m_list = deepcopy(m_list)
                     success, decode_str = self.parse_str(data, m, tmp_m_list)
 
@@ -346,7 +430,7 @@ class WhatEncode(object):
                     else:
                         if len(tmp_m_list) > 0 and not has_print:
                             has_print = True
-                            md5 = hashlib.md5(decode_str).hexdigest()
+                            md5 = hashlib.md5(utf8(decode_str)).hexdigest()
                             if md5 in result_method_dict:
                                 item = result_method_dict[md5]
                                 # 为了避免数据很繁杂，只保留最短路径
@@ -364,21 +448,21 @@ class WhatEncode(object):
 
         result_method_list = sorted(result_method_dict.values(), key=lambda x: x['methods'])
         for item in result_method_list:
-            print('methods: %s' % item['methods'])
-            print('plain  : %s' % item['data'])
-            print('size   : %s' % len(item['data']))
-            print('')
+            logger.info('methods: %s' % item['methods'])
+            logger.info('plain  : %s' % item['data'])
+            logger.info('size   : %s' % len(item['data']))
+            logger.info('')
 
-        print('------------------------------------------------')
-        print('all test done, you should analysis result again')
-        print('------------------------------------------------')
+        logger.info('------------------------------------------------')
+        logger.info('all test done, you should analysis result again')
+        logger.info('------------------------------------------------')
 
     def decode_with_methods(self, method_list):
         success, decode_str = False, ''
         for i, m in enumerate(method_list):
             success, decode_str = self.parse_str(self.data_str, m, method_list[:i])
             if not success:
-                print('decode method list error, save file error')
+                logger.info('decode method list error, save file error')
 
         return decode_str
 
@@ -398,9 +482,12 @@ class WhatEncode(object):
 def main():
     (options, args) = parser.parse_args()
 
+    options.data_str = '01100001'
+    options.verbose = True
     p = WhatEncode(options.data_str, options.method_list,
                    options.file_name, options.save_file_name,
-                   options.only_printable, verbose=options.verbose)
+                   options.only_printable, max_depth=options.max_depth,
+                   verbose=options.verbose)
     if options.data_str is not None:
         if not p.decode_2_file():
             p.parse()

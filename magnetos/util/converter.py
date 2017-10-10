@@ -7,30 +7,49 @@ from __future__ import unicode_literals, absolute_import
 
 import base64
 import binascii
+from base64 import b64decode, b32decode, b16decode
+from mountains.encoding import utf8
 
 
-def base64_padding(data):
-    if len(data) % 4 != 0:
-        data = '%s%s' % (data, '=' * (4 - len(data) % 4))
+def base_padding(data, length=4):
+    if len(data) % length != 0:
+        data = '%s%s' % (data, '=' * (length - len(data) % length))
+
+    data = utf8(data)
     return data
 
 
-def to_hex(data):
+def partial_decode(decode_method, data, base_padding_length=4):
     """
-    把一个字符串转成其ASCII码的16进制表示
-    :param data: 要转换的字符串
-    :return: ASCII码的16进制表示字符串
+    对前面可以解码的数据一直解到无法解码
+    :param base_padding_length:
+    :param decode_method:
+    :param data:
+    :return:
     """
-    return binascii.b2a_hex(data)
+    data = utf8(data)
+    result = []
+    while len(data) > 0:
+        tmp = base_padding(data[:base_padding_length], base_padding_length)
+        data = data[base_padding_length:]
+        try:
+            r = decode_method(tmp)
+            result.append(r)
+        except:
+            break
+    return b''.join(result)
 
 
-def from_hex(data):
-    """
-    把十六进制字符串转换成其ASCII表示字符串
-    :param data: 十六进制字符串
-    :return: 字符串
-    """
-    return binascii.a2b_hex(data)
+def partial_base64_decode(data):
+    return partial_decode(b64decode, data, 4)
+
+
+def partial_base32_decode(data):
+    return partial_decode(b32decode, data, 3)
+
+
+def partial_base16_decode(data):
+    return partial_decode(b16decode, data, 2)
 
 
 def to_base64(data):
@@ -48,7 +67,7 @@ def from_base64(data):
     :param data: base64字符串
     :return: 字符串
     """
-    data = base64_padding(data)
+    data = base_padding(data, 4)
     return base64.b64decode(data)
 
 
@@ -67,7 +86,7 @@ def from_base32(data):
     :param data: base32字符串
     :return: 字符串
     """
-    data = base64_padding(data)
+    data = base_padding(data, 3)
     return base64.b32decode(data)
 
 
@@ -108,11 +127,21 @@ def from_uu(data):
 
 
 def str2hex(s):
+    """
+    把一个字符串转成其ASCII码的16进制表示
+    :param s: 要转换的字符串
+    :return: ASCII码的16进制表示字符串
+    """
     return binascii.b2a_hex(s)
 
 
 def hex2str(s):
-    return from_hex(s)
+    """
+    把十六进制字符串转换成其ASCII表示字符串
+    :param s: 十六进制字符串
+    :return: 字符串
+    """
+    return binascii.a2b_hex(s)
 
 
 base = [str(x) for x in range(10)] + [chr(x) for x in range(ord('A'), ord('A') + 6)]
@@ -169,6 +198,45 @@ def hex2bin(string_num):
 # 二进制 to 十六进制: hex(int(str,2))
 def bin2hex(string_num):
     return dec2hex(bin2dec(string_num))
+
+
+def str2num(s):
+    """
+    String to number.
+    """
+    if not len(s):
+        return 0
+    return int(s.encode('hex'), 16)
+
+
+def num2str(n):
+    """
+    Number to string.
+    """
+    s = hex(n)[2:].rstrip('L')
+    if len(s) % 2 != 0:
+        s = '0' + s
+    return s.encode().decode('hex')
+
+
+def str2bin(s):
+    """
+    String to binary.
+    """
+    ret = []
+    for c in s:
+        ret.append(bin(ord(c))[2:].zfill(8))
+    return ''.join(ret)
+
+
+def bin2str(b):
+    """
+    Binary to string.
+    """
+    ret = []
+    for pos in range(0, len(b), 8):
+        ret.append(chr(int(b[pos:pos + 8], 2)))
+    return ''.join(ret)
 
 
 if __name__ == "__main__":

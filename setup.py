@@ -66,10 +66,10 @@ setup(
     entry_points={
         'console_scripts': [
             'what_format = magnetos.fuzzing.what_format:main',
-            'find_code_scheme = magnetos.fuzzing.find_code_scheme:main',
+            'what_code_scheme = magnetos.fuzzing.what_code_scheme:main',
             'what_encode = magnetos.fuzzing.what_encode:main',
             'what_stego = magnetos.fuzzing.what_stego:main',
-            'file_hash_check = magnetos.util.file_hash_check:main',
+            'file_hash = magnetos.util.file_hash:main',
         ],
     },
     **kwargs

@@ -1,16 +1,16 @@
-# coding=utf-8
-# from __future__ import unicode_literals
-
+# -*- coding: utf-8 -*-
+# created by restran on 2016/09/30
+from __future__ import unicode_literals, absolute_import
 
 import os
 import sys
 import binascii
 import traceback
-from mountains.encoding import utf8
+from mountains.encoding import utf8, to_unicode
 
 # 当前项目所在路径
 BASE_PATH = os.path.dirname(os.path.abspath(__file__))
-dict_data = os.path.join(BASE_PATH, 'data/what_format.dic')
+DICT_FILE_NAME = os.path.join(BASE_PATH, 'data/what_format.dic')
 
 
 def usage():
@@ -32,18 +32,19 @@ class WhatFormat(object):
         self.hex_data = ''
 
     @classmethod
-    def load_dict(cls, d):
+    def load_dict(cls, file_name):
         dict_list = []
-        with open(d, 'r') as lines:
-            for line in lines:
-                if line.strip() != '':
-                    if not line.startswith('#'):
-                        ext, des, hex_start, hex_end = line.split('::')
-                        hex_start = hex_start.lower().replace(' ', '')
-                        hex_end = hex_end.lower().replace(' ', '')
-                        item = [ext, des, hex_start, hex_end]
-                        item = tuple([t.strip() for t in item])
-                        dict_list.append(item)
+        with open(file_name, 'rb') as f:
+            for line in f:
+                line = to_unicode(line).strip()
+                if line != '' and not line.startswith('#'):
+                    ext, des, hex_start, hex_end = line.split('::')
+                    hex_start = hex_start.lower().replace(' ', '')
+                    hex_end = hex_end.lower().replace(' ', '')
+                    item = [ext, des, hex_start, hex_end]
+                    item = tuple([to_unicode(t.strip()) for t in item])
+                    dict_list.append(item)
+
         return dict_list
 
     def load_file(self):
@@ -55,7 +56,7 @@ class WhatFormat(object):
         ''' % (file_name, str(size / 1024)))
         with open(file_name, 'rb') as f:
             data = f.read()
-            hex_data = binascii.hexlify(data)
+            hex_data = to_unicode(binascii.hexlify(data))
 
         self.hex_data = hex_data
         return hex_data
@@ -65,7 +66,7 @@ class WhatFormat(object):
         result = []
         tmp_start = start
         while True:
-            code = hex_data.find(utf8(match), tmp_start)
+            code = hex_data.find(match, tmp_start)
             if code == -1:
                 return result
             else:
@@ -80,7 +81,7 @@ class WhatFormat(object):
             ext, des, hex_start, hex_end = d
             start = 0
             while True:
-                code_start = hex_data.find(utf8(hex_start), start)
+                code_start = hex_data.find(hex_start, start)
                 if code_start != -1:
                     start = code_start + 1
                     if hex_end != '':
@@ -109,7 +110,7 @@ class WhatFormat(object):
             data = hex_data[start:end]
             if len(data) % 2 != 0:
                 data += '0'
-            data = binascii.unhexlify(data)
+            data = binascii.unhexlify(utf8(data))
             return data
         except Exception as e:
             print('extract data error %s' % e)
@@ -146,7 +147,7 @@ class WhatFormat(object):
     def run(self):
         try:
             hex_data = self.load_file()
-            dict_list = self.load_dict(dict_data)
+            dict_list = self.load_dict(DICT_FILE_NAME)
             res_list = self.check_format(hex_data, dict_list)
             self.output(res_list, hex_data)
         except Exception as e:

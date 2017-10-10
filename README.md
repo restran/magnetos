@@ -10,7 +10,7 @@ Toolkit for security scripts developing.
 
 生成 wheel 包
 
-    python3 setup.py bdist_wheel --universal upload
+    python3 setup.py register bdist_wheel --universal upload
 
 生成 tar.gz 包，因为 setup.py 用到了 pypandoc，安装的时候会需要依赖
 
