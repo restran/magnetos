@@ -8,7 +8,7 @@ from magnetos.util import converter
 logger = logging.getLogger(__name__)
 
 
-class APIAuthTest(unittest.TestCase):
+class ConverterTest(unittest.TestCase):
     def setUp(self):
         pass
 

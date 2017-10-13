@@ -1,5 +1,8 @@
 # magnetos
 
+[![travis-ci](https://travis-ci.org/restran/magnetos.svg?branch=master)](https://travis-ci.org/restran/magnetos)
+[![Coverage Status](https://coveralls.io/repos/github/restran/magnetos/badge.svg?branch=master)](https://coveralls.io/github/restran/magnetos?branch=master)
+
 Toolkit for security scripts developing.
 
 ## Upload to PyPi
@@ -15,7 +18,6 @@ Toolkit for security scripts developing.
 生成 tar.gz 包，因为 setup.py 用到了 pypandoc，安装的时候会需要依赖
 
     python3 setup.py register sdist upload
-
 
 ## 通过 setup install 安装后删除
 
