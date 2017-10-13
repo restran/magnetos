@@ -1,0 +1,15 @@
+language: python
+python:
+    - 3.5
+
+install:
+  - pip install -r requirements.txt
+  - pip install coveralls
+
+before_script:
+
+script:
+  - coverage run --source=tests -m unittest discover -s magnetos -p "test_*.py"
+
+after_success:
+  coveralls

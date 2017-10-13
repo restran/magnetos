@@ -149,14 +149,14 @@ base = [str(x) for x in range(10)] + [chr(x) for x in range(ord('A'), ord('A') +
 
 # bin2dec
 # 二进制 to 十进制: int(str,n=10)
-def bin2dec(string_num):
-    return str(int(string_num, 2))
+def bin2dec(s):
+    return str(int(s, 2))
 
 
 # dec2bin
 # 十进制 to 二进制: bin()
-def dec2bin(string_num):
-    num = int(string_num)
+def dec2bin(s):
+    num = int(s)
     mid = []
     while True:
         if num == 0:
@@ -169,15 +169,15 @@ def dec2bin(string_num):
 
 # hex2dec
 # 十六进制 to 十进制
-def hex2dec(string_num):
-    return str(int(string_num.upper(), 16))
+def hex2dec(s):
+    return str(int(s.upper(), 16))
 
 
 # dec2hex
 # 十进制 to 八进制: oct()
 # 十进制 to 十六进制: hex()
-def dec2hex(string_num):
-    num = int(string_num)
+def dec2hex(s):
+    num = int(s)
     mid = []
     while True:
         if num == 0:
@@ -190,14 +190,14 @@ def dec2hex(string_num):
 
 # hex2tobin
 # 十六进制 to 二进制: bin(int(str,16))
-def hex2bin(string_num):
-    return dec2bin(hex2dec(string_num.upper()))
+def hex2bin(s):
+    return dec2bin(hex2dec(s.upper()))
 
 
 # bin2hex
 # 二进制 to 十六进制: hex(int(str,2))
-def bin2hex(string_num):
-    return dec2hex(bin2dec(string_num))
+def bin2hex(s):
+    return dec2hex(bin2dec(s))
 
 
 def str2num(s):
