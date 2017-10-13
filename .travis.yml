@@ -9,7 +9,7 @@ install:
 before_script:
 
 script:
-  - coverage run --source=tests -m unittest discover -s magnetos -p "test_*.py"
+  - coverage run --source=magnetos -m unittest discover -s tests -p "test_*.py"
 
 after_success:
   coveralls
