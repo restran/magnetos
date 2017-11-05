@@ -12,6 +12,7 @@ import traceback
 import zipfile
 from optparse import OptionParser
 from mountains.encoding import to_unicode, utf8
+from mountains import text_type
 
 parser = OptionParser()
 parser.add_option("-f", "--file name", dest="file_name", type="string",
@@ -98,9 +99,14 @@ class WhatStego(object):
 
     def run_shell_cmd(self, cmd):
         try:
-            (stdout, stderr) = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True,
+            (stdout, stderr) = subprocess.Popen(cmd, stdout=subprocess.PIPE,
+                                                stderr=subprocess.PIPE, shell=True,
                                                 universal_newlines=True).communicate()
-            return stdout
+            if stdout is None:
+                stdout = ''
+            if stderr is None:
+                stderr = ''
+            return '%s%s' % (stdout, stderr)
         except Exception as e:
             self.log(e)
             self.log('!!!error!!!')
@@ -151,9 +157,10 @@ class WhatStego(object):
                         pass
 
     def log(self, text):
+        text = text_type(text)
         print(text)
-        self.log_file.write(utf8(text))
-        self.log_file.write(b'\n')
+        self.log_file.write(text)
+        self.log_file.write('\n')
 
     def check_file(self):
         self.log('\n--------------------')
@@ -211,6 +218,7 @@ class WhatStego(object):
                 self.result_list.append(text)
             if 'jphide' in stdout:
                 text = '[*] 使用了 jphide 隐写，如果没有提供密码，可以用 stegbreak 用弱口令爆破'
+                text = '[*] 也有可能是使用 steghide 隐写，如果没有提供密码，可以用 steg_hide_break 用弱口令爆破'
                 self.result_list.append(text)
                 text = '    注意，jphide 的检测很可能会出现误报，可以尝试'
                 self.result_list.append(text)

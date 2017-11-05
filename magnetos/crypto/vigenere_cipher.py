@@ -33,16 +33,18 @@ def find_key_by_plain_cipher(plain, cipher):
     return key
 
 
-def decrypt(cipher, key):
+def decode(cipher, key):
     plain = Vigenere(key).decipher(cipher)
-    print(get_raw_plain_text(cipher, plain))
+    r = get_raw_plain_text(cipher, plain)
+    print(r)
+    return r
 
 
 def main():
     cipher = """jwm ewrboya fe gjbxcd hrzcvt."""
     plain = """the tragedy of julius caesar."""
     key = find_key_by_plain_cipher(plain, cipher)
-    decrypt(cipher, key)
+    decode(cipher, key)
 
 
 if __name__ == '__main__':

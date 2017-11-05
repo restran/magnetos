@@ -2,6 +2,7 @@
 # Created by restran on 2017/7/17
 from __future__ import unicode_literals, absolute_import
 import quopri
+from mountains.util import PrintCollector
 
 """
 Quoted-printable 编码
@@ -12,18 +13,21 @@ Quoted-printable 编码
 
 def decode(data):
     data = quopri.decodestring(data)
+    p = PrintCollector()
     # 原始的数据可能是用不同的编码
     try:
-        print('decode as utf8:')
-        print(data)
+        p.print('decode as utf8:')
+        p.print(data)
     except:
         pass
 
     try:
-        print('decode as gb2312:')
-        print(data.decode('gb2312'))
+        p.print('decode as gb2312:')
+        p.print(data.decode('gb2312'))
     except:
         pass
+
+    return p.all_output()
 
 
 def encode(data):

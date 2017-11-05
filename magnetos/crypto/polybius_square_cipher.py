@@ -3,6 +3,7 @@
 from __future__ import unicode_literals, absolute_import
 from copy import deepcopy
 import string
+from mountains.util import PrintCollector
 
 """
 波利比奥斯方阵密码（Polybius Square Cipher或称波利比奥斯棋盘）是棋盘密码的一种，
@@ -26,6 +27,8 @@ def decode_char(x, y):
 
 
 def decode(data):
+    p = PrintCollector()
+    detect(data, p)
     new_data = list(data)
     result_list = [[]]
     while len(new_data) > 0:
@@ -55,15 +58,16 @@ def decode(data):
     for x in result_list:
         x = ''.join(x)
         new_result_list.append(x)
-        print(x)
-    return new_result_list
+        p.print(x)
+    return p.all_output()
 
 
-def detect(data):
+def detect(data, p=None):
     data = [t for t in data if t in string.hexdigits]
     for t in data:
         if t not in ['1', '2', '3', '4', '5']:
-            print('可能波利比奥斯方阵密码')
+            if isinstance(p, PrintCollector):
+                p.print('可能不是波利比奥斯方阵密码')
             return False
 
     return True
@@ -72,7 +76,6 @@ def detect(data):
 def main():
     # data = '3534315412244543_434145114215_132435231542'
     data = '54433252224455342251522244342223113412'
-    detect(data)
     decode(data)
 
 

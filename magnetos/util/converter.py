@@ -8,7 +8,7 @@ from __future__ import unicode_literals, absolute_import
 import base64
 import binascii
 from base64 import b64decode, b32decode, b16decode
-from mountains.encoding import utf8
+from mountains.encoding import utf8, force_bytes, force_text
 
 
 def base_padding(data, length=4):
@@ -45,7 +45,7 @@ def partial_base64_decode(data):
 
 
 def partial_base32_decode(data):
-    return partial_decode(b32decode, data, 3)
+    return partial_decode(b32decode, data, 8)
 
 
 def partial_base16_decode(data):
@@ -73,7 +73,7 @@ def from_base64(data):
 
 def to_base32(data):
     """
-    把字符串转换成BASE32编码
+    把字符串转换成BASE32编码，5个ASCII字符一组，生成8个Base字符
     :param data: 字符串
     :return: BASE32字符串
     """
@@ -82,11 +82,11 @@ def to_base32(data):
 
 def from_base32(data):
     """
-    解base32编码
+    解base32编码，5个ASCII字符一组，生成8个Base字符
     :param data: base32字符串
     :return: 字符串
     """
-    data = base_padding(data, 3)
+    data = base_padding(data, 8)
     return base64.b32decode(data)
 
 
@@ -114,7 +114,8 @@ def to_uu(data):
     :param data: 字符串
     :return: 编码后的字符串
     """
-    return binascii.b2a_uu(data)
+    r = binascii.b2a_uu(force_bytes(data))
+    return force_text(r)
 
 
 def from_uu(data):
@@ -123,7 +124,8 @@ def from_uu(data):
     :param data: uu编码的字符串
     :return: 字符串
     """
-    return binascii.a2b_uu(data)
+    r = binascii.a2b_uu(data)
+    return force_text(r)
 
 
 def str2hex(s):
@@ -132,7 +134,7 @@ def str2hex(s):
     :param s: 要转换的字符串
     :return: ASCII码的16进制表示字符串
     """
-    return binascii.b2a_hex(s)
+    return force_text(binascii.b2a_hex(force_bytes(s)))
 
 
 def hex2str(s):
@@ -141,7 +143,7 @@ def hex2str(s):
     :param s: 十六进制字符串
     :return: 字符串
     """
-    return binascii.a2b_hex(s)
+    return force_text(binascii.a2b_hex(s))
 
 
 base = [str(x) for x in range(10)] + [chr(x) for x in range(ord('A'), ord('A') + 6)]
@@ -191,32 +193,48 @@ def dec2hex(s):
 # hex2tobin
 # 十六进制 to 二进制: bin(int(str,16))
 def hex2bin(s):
-    return dec2bin(hex2dec(s.upper()))
+    if len(s) % 2 != 0:
+        s += '0'
+
+    result = []
+    for i in range(len(s) // 2):
+        t = s[i * 2:(i + 1) * 2]
+        x = dec2bin(hex2dec(t.upper()))
+        padding_length = (8 - len(x) % 8) % 8
+        # 每个16进制值（2个字符）进行转码，不足8个的，在前面补0
+        x = '%s%s' % ('0' * padding_length, x)
+        result.append(x)
+
+    return ''.join(result)
 
 
 # bin2hex
 # 二进制 to 十六进制: hex(int(str,2))
 def bin2hex(s):
-    return dec2hex(bin2dec(s))
+    padding_length = (8 - len(s) % 8) % 8
+    # 从前往后解码，不足8个的，在后面补0
+    encode_str = '%s%s' % (s, '0' * padding_length)
+    # 解码后是 0xab1234，需要去掉前面的 0x
+    return hex(int(encode_str, 2))[2:].rstrip('L')
 
 
-def str2num(s):
+def str2dec(s):
     """
-    String to number.
+    string to decimal number.
     """
     if not len(s):
         return 0
-    return int(s.encode('hex'), 16)
+    return int(str2hex(s), 16)
 
 
-def num2str(n):
+def dec2str(n):
     """
-    Number to string.
+    decimal number to string.
     """
-    s = hex(n)[2:].rstrip('L')
+    s = hex(int(n))[2:].rstrip('L')
     if len(s) % 2 != 0:
         s = '0' + s
-    return s.encode().decode('hex')
+    return hex2str(s)
 
 
 def str2bin(s):
@@ -239,5 +257,69 @@ def bin2str(b):
     return ''.join(ret)
 
 
+def from_digital(s, num):
+    """
+    进制转换，从指定机制转到10进制
+    :param s:
+    :param num:
+    :return:
+    """
+    if not 1 < num < 10:
+        raise ValueError('digital num must between 1 and 10')
+    return '%s' % int(s, num)
+
+
+def to_digital(d, num):
+    """
+    进制转换，从10进制转到指定机制
+    :param d:
+    :param num:
+    :return:
+    """
+    if not isinstance(num, int) or not 1 < num < 10:
+        raise ValueError('digital num must between 1 and 10')
+
+    d = int(d)
+    result = []
+    x = d % num
+    d = d - x
+    result.append(str(x))
+    while d > 0:
+        d = d // num
+        x = d % num
+        d = d - x
+        result.append(str(x))
+    return ''.join(result[::-1])
+
+
+def all_digit_convert(data, data_type):
+    if data_type == 'binary':
+        decimal = bin2dec(data)
+    elif data_type == 'octal':
+        decimal = from_digital(data, 8)
+    elif data_type == 'decimal':
+        decimal = int(data)
+    elif data_type == 'hex':
+        decimal = hex2dec(data)
+    elif data_type == 'ascii':
+        decimal = str2dec(data)
+    else:
+        return {}
+
+    data = {
+        'hex': dec2hex(decimal),
+        'decimal': decimal,
+        'octal': to_digital(decimal, 8),
+        'binary': dec2bin(decimal),
+        'ascii': dec2str(decimal)
+    }
+
+    return data
+
+
 if __name__ == "__main__":
-    pass
+    # x = to_digital(7, 3)
+    # print(x)
+    x = 'JVDFER2HHU6T2==='
+    x = partial_base32_decode(x)
+    print(x)

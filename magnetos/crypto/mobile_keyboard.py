@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 # Created by restran on 2017/8/14
 from __future__ import unicode_literals, absolute_import
+from mountains.util import PrintCollector
 
 """
 手机9宫格键盘编码
@@ -18,10 +19,11 @@ dict_map = {
 }
 
 
-def decode(data):
+def decode(data, verbose=False):
+    p = PrintCollector()
     data = data.replace(' ', '').strip()
     if len(data) % 2 != 0:
-        print('可能不是9宫格手机键盘编码')
+        p.print('可能不是9宫格手机键盘编码')
         return
     tmp_data = list(data)
     result = []
@@ -30,13 +32,13 @@ def decode(data):
         tmp_data = tmp_data[2:]
         v = dict_map.get(k)
         if v is None:
-            print('可能不是9宫格手机键盘编码')
+            p.print('可能不是9宫格手机键盘编码')
             return
 
         result.append(v)
 
     result = ''.join(result)
-    print(result)
+    p.print(result)
     return result
 
 

@@ -15,7 +15,7 @@ from __future__ import unicode_literals, absolute_import
 import string
 
 
-def decrypt(data):
+def decode(data):
     data = data.strip()
     split_list = data.split('0')
     data = [sum([int(t) for t in item]) for item in split_list]
@@ -29,7 +29,7 @@ def decrypt(data):
 
 def main():
     d = '8842101220480224404014224202480122'
-    r = decrypt(d)
+    r = decode(d)
     print(r)
 
 

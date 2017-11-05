@@ -2,6 +2,23 @@
 # Created by restran on 2017/9/15
 from __future__ import unicode_literals, absolute_import
 import string
+import subprocess
+
+
+def run_shell_cmd(cmd):
+    try:
+        (stdout, stderr) = subprocess.Popen(cmd, stdout=subprocess.PIPE,
+                                            stderr=subprocess.PIPE, shell=True).communicate()
+        if stdout is None:
+            stdout = ''
+        if stderr is None:
+            stderr = ''
+        return '%s%s' % (stdout, stderr)
+
+    except Exception as e:
+        print(e)
+        print('!!!error!!!')
+        return ''
 
 
 def get_raw_plain_text(raw_data, decoded_data):
