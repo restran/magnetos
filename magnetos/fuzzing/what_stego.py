@@ -66,7 +66,7 @@ class WhatStego(object):
             # (r'(?:key|KEY|flag|FLAG|ctf|CTF)+[\x20-\x7E]{3,50}', re.I),
             (r'(?:key|flag|ctf)[\x20-\x7E]{5,40}', re.I),
             (r'(?:key|flag|ctf)[\x20-\x7E]{0,3}(?::|=|\{|is)[\x20-\x7E]{,40}', re.I),
-            (r'[a-zA-Z0-9]{32}', re.I)
+            (r'[\x20-\x7E]{0,8}[a-zA-Z0-9]{16,32}[\x20-\x7E]{0,8}', re.I),
         ]
 
         result_dict = {}
