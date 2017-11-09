@@ -69,7 +69,9 @@ setup(
             'what_code_scheme = magnetos.fuzzing.what_code_scheme:main',
             'what_encode = magnetos.fuzzing.what_encode:main',
             'what_stego = magnetos.fuzzing.what_stego:main',
-            'file_hash = magnetos.util.file_hash:main',
+            'file_hash = magnetos.utils.file_hash:main',
+            'file_strings = magnetos.utils.file_strings:main',
+            'find_ctf_flag = magnetos.utils.find_ctf_flag:main',
         ],
     },
     **kwargs

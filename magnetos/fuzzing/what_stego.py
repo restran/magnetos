@@ -4,15 +4,14 @@ from __future__ import unicode_literals, absolute_import
 
 import hashlib
 import os
-import re
 import shutil
-import string
 import subprocess
-import traceback
 import zipfile
 from optparse import OptionParser
-from mountains.encoding import to_unicode, utf8
+
 from mountains import text_type
+from mountains.encoding import force_text
+from magnetos.utils import find_ctf_flag, file_strings
 
 parser = OptionParser()
 parser.add_option("-f", "--file name", dest="file_name", type="string",
@@ -46,57 +45,6 @@ class WhatStego(object):
         self.log_file_name = 'log.txt'
         self.log_file = None
 
-    def get_flag_from_string(self, file_path):
-        if not os.path.exists(file_path):
-            return
-        with open(file_path, 'r') as f:
-            data = f.read()
-
-        data = to_unicode(data)
-        data = data.replace('\n', '')
-        data = data.replace('\r', '')
-        data = data.replace('\t', '')
-        data = data.replace(' ', '')
-
-        # 这里用 ?: 表示不对该分组编号，也不匹配捕获的文本
-        # 这样使用 findall 得到的结果就不会只有()里面的东西
-        # [\x20-\x7E] 是可见字符
-        re_list = [
-            # (r'(?:key|flag|ctf)\{[^\{\}]{3,35}\}', re.I),
-            # (r'(?:key|KEY|flag|FLAG|ctf|CTF)+[\x20-\x7E]{3,50}', re.I),
-            (r'(?:key|flag|ctf)[\x20-\x7E]{5,40}', re.I),
-            (r'(?:key|flag|ctf)[\x20-\x7E]{0,3}(?::|=|\{|is)[\x20-\x7E]{,40}', re.I),
-            (r'[\x20-\x7E]{0,8}[a-zA-Z0-9]{16,32}[\x20-\x7E]{0,8}', re.I),
-        ]
-
-        result_dict = {}
-        for r, option in re_list:
-            # re.I表示大小写无关
-            if option is not None:
-                pattern = re.compile(r, option)
-            else:
-                pattern = re.compile(r)
-            ret = pattern.findall(data)
-            if len(ret):
-                try:
-                    result = []
-                    for t in ret:
-                        x = [x for x in t if t in string.printable]
-                        x = ''.join(x)
-                        result.append(x)
-
-                    result = [t.replace('\n', '').replace('\r', '').strip() for t in ret]
-                    for t in result:
-                        if t not in result_dict:
-                            result_dict[t] = None
-                except Exception as e:
-                    self.log(e)
-                    self.log(traceback.format_exc())
-
-        result = '\n'.join(result_dict.keys())
-        self.log(result)
-        self.log('=======================')
-
     def run_shell_cmd(self, cmd):
         try:
             (stdout, stderr) = subprocess.Popen(cmd, stdout=subprocess.PIPE,
@@ -116,12 +64,14 @@ class WhatStego(object):
     def strings(self):
         self.log('\n--------------------')
         self.log('run strings')
-        out_file = os.path.join(self.output_path, 'strings.txt')
+        out_file = os.path.join(self.output_path, 'strings_1.txt')
         cmd = 'strings %s > %s' % (self.file_path, out_file)
         self.run_shell_cmd(cmd)
+        out_file = os.path.join(self.output_path, 'strings_2.txt')
+        file_strings.file_2_printable_strings(self.file_path, out_file)
 
     def check_strings(self):
-        file_path = os.path.join(self.output_path, 'strings.txt')
+        file_path = os.path.join(self.output_path, 'strings_1.txt')
         with open(file_path, 'r') as f:
             string_data = f.read()
 
@@ -144,7 +94,7 @@ class WhatStego(object):
             last_length = None
             for t in out_list:
                 t = t.strip()
-                t = to_unicode(t)
+                t = force_text(t)
                 if t.startswith('chunk IDAT'):
                     try:
                         length = int(t.split(' ')[-1])
@@ -270,7 +220,8 @@ class WhatStego(object):
         # 排除这些文件
         exclude_file_list = [
             'foremost/audit.txt',
-            'strings.txt',
+            'strings_1.txt',
+            'strings_2.txt',
             'zsteg.txt',
             'log.txt'
         ]
@@ -404,11 +355,17 @@ class WhatStego(object):
 
         self.log('\n--------------------')
         self.log('尝试从文件文本中提取 flag')
-        zsteg_txt = os.path.join(self.output_path, 'zsteg.txt')
-        self.get_flag_from_string(zsteg_txt)
-        strings_txt = os.path.join(self.output_path, 'strings.txt')
-        self.get_flag_from_string(strings_txt)
-
+        find_flag_result_dict = {}
+        zsteg_file = os.path.join(self.output_path, 'zsteg.txt')
+        result = find_ctf_flag.get_flag_from_file(zsteg_file, find_flag_result_dict)
+        self.log(result)
+        strings_file = os.path.join(self.output_path, 'strings_1.txt')
+        result = find_ctf_flag.get_flag_from_file(strings_file, find_flag_result_dict)
+        self.log(result)
+        strings_file = os.path.join(self.output_path, 'strings_2.txt')
+        result = find_ctf_flag.get_flag_from_file(strings_file, find_flag_result_dict)
+        self.log(result)
+        self.log('=======================')
         self.log_file.close()
 
 
@@ -416,10 +373,15 @@ def main():
     (options, args) = parser.parse_args()
 
     if options.file_name is not None:
-        file_path = os.path.join(os.getcwd(), options.file_name)
-        WhatStego(file_path).run()
+        file_name = options.file_name
+    elif len(args) > 0:
+        file_name = args[0]
     else:
         parser.print_help()
+        return
+
+    file_path = os.path.join(os.getcwd(), file_name)
+    WhatStego(file_path).run()
 
 
 if __name__ == '__main__':
