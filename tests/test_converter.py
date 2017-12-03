@@ -4,7 +4,7 @@ from __future__ import unicode_literals, absolute_import
 import os
 import unittest
 import logging
-from magnetos.util import converter
+from magnetos.utils import converter
 
 logger = logging.getLogger(__name__)
 

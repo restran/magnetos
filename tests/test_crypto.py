@@ -13,16 +13,6 @@ class CryptoTest(unittest.TestCase):
     def setUp(self):
         pass
 
-    def test_mobile_keyboard(self):
-        s = '1F'
-        r = converter.hex2dec(s)
-        self.assertEqual(r, '31')
-        s = '1F1F'
-        r = converter.hex2dec(s)
-        self.assertEqual(r, '7967')
-
-
-
 
 if __name__ == '__main__':
     unittest.main()
