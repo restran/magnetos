@@ -17,6 +17,8 @@ parser.add_option("-s", "--strict mode", dest="strict_mode",
                   help="use strict mode, only exists ctf, flag, key ")
 
 
+# TODO 对目录的支持
+
 def get_flag_from_file(file_path, strict_mode=False, result_dict=None):
     if not os.path.exists(file_path):
         return
@@ -45,8 +47,9 @@ def get_flag_from_file(file_path, strict_mode=False, result_dict=None):
 
     if not strict_mode:
         re_list.extend([
-            (r'[\x20-\x7E]{0,8}[a-zA-Z0-9]{16}[\x20-\x7E]{0,5}', re.I),
-            (r'[\x20-\x7E]{0,8}[a-zA-Z0-9]{32}[\x20-\x7E]{0,5}', re.I),
+            (r'[a-z0-9]{0,8}[\x20-\x7E]{0,3}\{[\x20-\x7E]{4,40}\}', re.I),
+            (r'[\x20-\x7E]{0,8}[a-z0-9]{16}[\x20-\x7E]{0,5}', re.I),
+            (r'[\x20-\x7E]{0,8}[a-z0-9]{32}[\x20-\x7E]{0,5}', re.I),
         ])
 
     if result_dict is None:

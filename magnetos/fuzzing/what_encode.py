@@ -5,23 +5,22 @@ from __future__ import unicode_literals, absolute_import
 import hashlib
 import re
 import string
-import traceback
 import zlib
-from base64 import b32decode, b16decode, b64decode
+from base64 import urlsafe_b64decode
 from copy import deepcopy
 from optparse import OptionParser
 
 from future.moves.urllib.parse import unquote_plus
+from magnetos.utils.converter import partial_base64_decode, \
+    partial_base32_decode, partial_base16_decode, base_padding, hex2str
 from mountains import PY3, PY2
 from mountains import logging
+from mountains.encoding import utf8, to_unicode
 from mountains.logging import StreamHandler
-from mountains.encoding import force_bytes, utf8, to_unicode
-from magnetos.util.converter import partial_base64_decode, \
-    partial_base32_decode, partial_base16_decode, base_padding, hex2str
 
 logger = logging.getLogger(__name__)
 logging.init_log(StreamHandler(level=logging.DEBUG,
-                               format=logging.FORMAT_VERBOSE,
+                               format=logging.FORMAT_SIMPLE,
                                datefmt=logging.DATE_FMT_SIMPLE))
 if PY3:
     from base64 import b85decode, a85decode
@@ -32,6 +31,7 @@ if PY3:
 python what_encode.py -f input.txt > out.txt
 """
 
+# 自动尝试这些编码
 # 自动尝试这些编码
 encode_methods = [
     'hex',
@@ -53,6 +53,7 @@ encode_methods = [
     'pawn_shop',  # 当铺密码
     'switch_case',  # 大小写交换
     'reverse_alphabet',  # 字母表逆序
+    'reverse',  # 逆序
     'urlencode',
 ]
 
@@ -126,48 +127,57 @@ class WhatEncode(object):
         try:
             if decode_method == 'base16':
                 # 避免无限递归
-                base_list = ('base16', 'base32', 'base64', 'urlsafe_b64')
-                if (len(m_list) > 0 and m_list[-1] in base_list) or len(encode_str) < 4:
+                # base_list = ('base16', 'base32', 'base64', 'urlsafe_b64')
+                base_list = ()
+                if len(encode_str) < 4:
                     return False, raw_encode_str
 
                 encode_str = encode_str.upper()
-                rex = re.compile('^[0-9A-F]+[=]{0,2}$', re.MULTILINE)
+                rex = re.compile('^[0-9A-F]+[=]*$', re.MULTILINE)
                 if self.regex_match(rex, encode_str):
                     decode_str = partial_base16_decode(encode_str)
                 else:
                     return False, raw_encode_str
             elif decode_method == 'base32':
+                encode_str = encode_str.strip().replace(' ', '').replace('\n', '')
                 # 避免无限递归
-                base_list = ('base16', 'base32', 'base64', 'urlsafe_b64')
-                if (len(m_list) > 0 and m_list[-1] in base_list) or len(encode_str) < 4:
+                # base_list = ('base16', 'base32', 'base64', 'urlsafe_b64')
+                base_list = ()
+                if len(encode_str) < 4:
                     return False, raw_encode_str
 
-                rex = re.compile('^[A-Z2-7]+[=]{0,2}$', re.MULTILINE)
+                encode_str = encode_str.upper()
+                rex = re.compile('^[A-Z2-7]+[=]*$', re.MULTILINE)
                 # 自动纠正填充
                 if self.regex_match(rex, encode_str):
                     decode_str = partial_base32_decode(encode_str)
                 else:
                     return False, raw_encode_str
             elif decode_method == 'base64':
+                encode_str = encode_str.strip().replace(' ', '').replace('\n', '')
+
                 # 避免无限递归
-                base_list = ('base16', 'base32', 'base64', 'urlsafe_b64')
-                if (len(m_list) > 0 and m_list[-1] in base_list) or len(encode_str) < 4:
+                # base_list = ('base16', 'base32', 'base64', 'urlsafe_b64')
+                base_list = ()
+                if len(encode_str) < 4:
                     return False, raw_encode_str
 
-                rex = re.compile('^[A-Za-z0-9+/]+[=]{0,2}$', re.MULTILINE)
+                rex = re.compile('^[A-Za-z0-9+/]+[=]*$', re.MULTILINE)
                 # 自动纠正填充
                 if self.regex_match(rex, encode_str):
                     decode_str = partial_base64_decode(encode_str)
                 else:
                     return False, raw_encode_str
             elif decode_method == 'urlsafe_b64':
-                if len(m_list) > 0 and m_list[-1] in ('base16', 'base32', 'base64', 'urlsafe_b64') \
-                        and len(encode_str) < 4:
+                encode_str = encode_str.strip().replace(' ', '').replace('\n', '')
+                # base_list = ('base16', 'base32', 'base64', 'urlsafe_b64')
+                base_list = ()
+                if len(encode_str) < 4:
                     return False, raw_encode_str
                 rex = re.compile('^[A-Za-z0-9-_]+[=]{0,2}$', re.MULTILINE)
                 # 自动纠正填充
                 if self.regex_match(rex, encode_str):
-                    decode_str = b64decode(base_padding(encode_str, 4))
+                    decode_str = urlsafe_b64decode(base_padding(encode_str, 4))
                 else:
                     return False, raw_encode_str
             elif decode_method == 'ascii_85':
@@ -194,7 +204,6 @@ class WhatEncode(object):
                     decode_str = b85decode(utf8(encode_str))
                 else:
                     return False, encode_str
-
             elif decode_method == 'pawn_shop':
                 try:
                     encode_str = encode_str.decode('gb2312')
@@ -301,10 +310,9 @@ class WhatEncode(object):
                         tmp_list = tmp_list[3:]
                     ascii_list.append(chr(int(tmp_str)))
                 decode_str = ''.join(ascii_list)
-
-            elif decode_method in ['switch_case', 'reverse_alphabet']:
+            elif decode_method in ['switch_case', 'reverse_alphabet', 'reverse']:
                 # 如果这里不做限制，会无限递归下去
-                if len(m_list) > 0 and m_list[-1] in ['switch_case', 'reverse_alphabet']:
+                if len(m_list) > 0 and m_list[-1] in ['switch_case', 'reverse_alphabet', 'reverse']:
                     return False, raw_encode_str
 
                 # 一定要包含 ascii 字符
@@ -312,9 +320,9 @@ class WhatEncode(object):
                 if len(tmp_data) <= 0:
                     return False, raw_encode_str
 
-                rex = re.compile('^[A-Za-z0-9+/]+[=]{0,2}$', re.MULTILINE)
-                if not self.regex_match(rex, encode_str):
-                    return False, raw_encode_str
+                # rex = re.compile('^[A-Za-z0-9+/=]$', re.MULTILINE)
+                # if not self.regex_match(rex, encode_str):
+                #     return False, raw_encode_str
 
                 if decode_method == 'switch_case':
                     new_data = []
@@ -338,6 +346,9 @@ class WhatEncode(object):
                                 t = chr(t)
                         new_data.append(t)
                     decode_str = ''.join(new_data)
+                elif decode_method == 'reverse':
+                    # 逆序
+                    decode_str = encode_str[::-1]
                 else:
                     return False, raw_encode_str
             elif decode_method == 'urlencode':
@@ -394,8 +405,7 @@ class WhatEncode(object):
                 return True, decode_str
         except Exception as e:
             if self.verbose:
-                logger.info(e)
-                logger.info(traceback.format_exc())
+                logger.exception(e)
             return False, raw_encode_str
 
     def parse(self):
@@ -416,7 +426,6 @@ class WhatEncode(object):
                 data = item['data']
                 has_print = False
                 for i, m in enumerate(encode_methods):
-
                     tmp_m_list = deepcopy(m_list)
                     success, decode_str = self.parse_str(data, m, tmp_m_list)
 
@@ -446,16 +455,10 @@ class WhatEncode(object):
 
             should_try_list = new_should_try_list
 
-        result_method_list = sorted(result_method_dict.values(), key=lambda x: x['methods'])
-        for item in result_method_list:
-            logger.info('methods: %s' % item['methods'])
-            logger.info('plain  : %s' % item['data'])
-            logger.info('size   : %s' % len(item['data']))
-            logger.info('')
+        result_method_list = sorted(result_method_dict.values(),
+                                    key=lambda x: x['methods'])
 
-        logger.info('------------------------------------------------')
-        logger.info('all test done, you should analysis result again')
-        logger.info('------------------------------------------------')
+        return result_method_list
 
     def decode_with_methods(self, method_list):
         success, decode_str = False, ''
@@ -488,14 +491,26 @@ def main():
                    options.file_name, options.save_file_name,
                    options.only_printable, max_depth=options.max_depth,
                    verbose=options.verbose)
+    result_method_list = []
     if options.data_str is not None:
         if not p.decode_2_file():
-            p.parse()
+            result_method_list = p.parse()
     elif options.file_name is not None:
         if not p.decode_2_file():
-            p.parse()
+            result_method_list = p.parse()
     else:
         parser.print_help()
+        return
+
+    for item in result_method_list:
+        logger.info('methods: %s' % item['methods'])
+        logger.info('plain  : %s' % item['data'])
+        logger.info('size   : %s' % len(item['data']))
+        logger.info('')
+
+    logger.info('------------------------------------------------')
+    logger.info('all test done, you should analysis result again')
+    logger.info('------------------------------------------------')
 
 
 if __name__ == '__main__':
