@@ -485,8 +485,6 @@ class WhatEncode(object):
 def main():
     (options, args) = parser.parse_args()
 
-    options.data_str = '01100001'
-    options.verbose = True
     p = WhatEncode(options.data_str, options.method_list,
                    options.file_name, options.save_file_name,
                    options.only_printable, max_depth=options.max_depth,
