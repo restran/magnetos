@@ -46,6 +46,22 @@ class ConverterTest(unittest.TestCase):
                 x = converter.from_digital(r, j)
                 self.assertEqual(str(i), x)
 
+    def test_partial_base64(self):
+        x = 'ZmxhZ3t0aGlzIGlzIGEgZmxhZ30=ZmxhZ3t0aGlzIGlzIGEgZmxhZ30='
+        x = converter.partial_base64_decode(x)
+        self.assertEqual(x, b'flag{this is a flag}flag{this is a flag}')
+        x = 'YWJjZGVmZw'
+        x = converter.partial_base64_decode(x)
+        self.assertEqual(x, b'abcdefg')
+
+    def test_partial_base32(self):
+        x = 'JVDFER2HHU6T2==='
+        x = converter.partial_base32_decode(x)
+        self.assertEqual(x, b'MFRGG===')
+        x = 'MFRGG'
+        x = converter.partial_base32_decode(x)
+        self.assertEqual(x, b'abc')
+
 
 if __name__ == '__main__':
     unittest.main()

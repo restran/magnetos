@@ -12,10 +12,10 @@ from mountains.encoding import utf8, force_bytes, force_text
 
 
 def base_padding(data, length=4):
-    if len(data) % length != 0:
-        data = '%s%s' % (data, '=' * (length - len(data) % length))
-
     data = utf8(data)
+    if len(data) % length != 0:
+        data = data + b'=' * (length - len(data) % length)
+
     return data
 
 

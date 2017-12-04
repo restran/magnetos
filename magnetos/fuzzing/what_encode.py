@@ -9,7 +9,7 @@ import zlib
 from base64 import urlsafe_b64decode
 from copy import deepcopy
 from optparse import OptionParser
-
+from functools import cmp_to_key
 from future.moves.urllib.parse import unquote_plus
 from magnetos.utils.converter import partial_base64_decode, \
     partial_base32_decode, partial_base16_decode, base_padding, hex2str
@@ -128,7 +128,7 @@ class WhatEncode(object):
             if decode_method == 'base16':
                 # 避免无限递归
                 # base_list = ('base16', 'base32', 'base64', 'urlsafe_b64')
-                base_list = ()
+                # base_list = ()
                 if len(encode_str) < 4:
                     return False, raw_encode_str
 
@@ -142,12 +142,12 @@ class WhatEncode(object):
                 encode_str = encode_str.strip().replace(' ', '').replace('\n', '')
                 # 避免无限递归
                 # base_list = ('base16', 'base32', 'base64', 'urlsafe_b64')
-                base_list = ()
+                # base_list = ()
                 if len(encode_str) < 4:
                     return False, raw_encode_str
 
                 encode_str = encode_str.upper()
-                rex = re.compile('^[A-Z2-7]+[=]*$', re.MULTILINE)
+                rex = re.compile('^[A-Z2-7=]+$', re.MULTILINE)
                 # 自动纠正填充
                 if self.regex_match(rex, encode_str):
                     decode_str = partial_base32_decode(encode_str)
@@ -158,11 +158,11 @@ class WhatEncode(object):
 
                 # 避免无限递归
                 # base_list = ('base16', 'base32', 'base64', 'urlsafe_b64')
-                base_list = ()
+                # base_list = ()
                 if len(encode_str) < 4:
                     return False, raw_encode_str
 
-                rex = re.compile('^[A-Za-z0-9+/]+[=]*$', re.MULTILINE)
+                rex = re.compile('^[A-Za-z0-9+/=]+$', re.MULTILINE)
                 # 自动纠正填充
                 if self.regex_match(rex, encode_str):
                     decode_str = partial_base64_decode(encode_str)
@@ -171,10 +171,10 @@ class WhatEncode(object):
             elif decode_method == 'urlsafe_b64':
                 encode_str = encode_str.strip().replace(' ', '').replace('\n', '')
                 # base_list = ('base16', 'base32', 'base64', 'urlsafe_b64')
-                base_list = ()
+                # base_list = ()
                 if len(encode_str) < 4:
                     return False, raw_encode_str
-                rex = re.compile('^[A-Za-z0-9-_]+[=]{0,2}$', re.MULTILINE)
+                rex = re.compile('^[A-Za-z0-9-_=]+$', re.MULTILINE)
                 # 自动纠正填充
                 if self.regex_match(rex, encode_str):
                     decode_str = urlsafe_b64decode(base_padding(encode_str, 4))
@@ -455,8 +455,26 @@ class WhatEncode(object):
 
             should_try_list = new_should_try_list
 
+        def cmp_method_list(x, y):
+            len_x = len(x['m_list'])
+            len_y = len(y['m_list'])
+            if len_x == len_y:
+                for index, t in enumerate(x['m_list']):
+                    if x['m_list'][index] > y['m_list'][index]:
+                        return 1
+                    elif x['m_list'][index] == y['m_list'][index]:
+                        pass
+                    else:
+                        return -1
+                return 0
+            elif len_x > len_y:
+                return 1
+            else:
+                return -1
+
         result_method_list = sorted(result_method_dict.values(),
-                                    key=lambda x: x['methods'])
+                                    key=cmp_to_key(lambda x, y: cmp_method_list(x, y)),
+                                    reverse=True)
 
         return result_method_list
 
