@@ -2,7 +2,7 @@
 # Created by restran on 2016/12/4
 from __future__ import unicode_literals, absolute_import
 import string
-from mountains.util import PrintCollector
+from mountains.utils import PrintCollector
 # https://zh.wikipedia.org/wiki/ROT13
 
 """

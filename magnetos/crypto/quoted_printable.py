@@ -2,7 +2,7 @@
 # Created by restran on 2017/7/17
 from __future__ import unicode_literals, absolute_import
 import quopri
-from mountains.util import PrintCollector
+from mountains.utils import PrintCollector
 
 """
 Quoted-printable 编码

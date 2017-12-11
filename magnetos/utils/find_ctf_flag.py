@@ -1,13 +1,16 @@
 # -*- coding: utf-8 -*-
 # Created by restran on 2017/11/9
 from __future__ import unicode_literals, absolute_import
-import re
+
 import os
-from mountains.encoding import force_text
-from magnetos.utils.file_strings import bytes_2_printable_strings
+import re
 import string
 import traceback
 from optparse import OptionParser
+
+from mountains.encoding import force_text
+
+from ..utils.file_strings import bytes_2_printable_strings
 
 parser = OptionParser()
 parser.add_option("-f", "--file name", dest="file_name", type="string",

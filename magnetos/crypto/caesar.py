@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
-from magnetos.crypto import smart_output
+from ..crypto import smart_output
 from mountains.util import PrintCollector
 
 """

@@ -2,7 +2,7 @@
 # Created by restran on 2017/8/29
 from __future__ import unicode_literals, absolute_import
 
-from magnetos import utils as util
+from . import utils as util
 
 __author__ = "restran <grestran@gmail.com>"
-__version__ = '0.2.12'
+__version__ = '0.2.13'

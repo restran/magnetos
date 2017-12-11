@@ -8,15 +8,16 @@ import string
 import zlib
 from base64 import urlsafe_b64decode
 from copy import deepcopy
-from optparse import OptionParser
 from functools import cmp_to_key
+from optparse import OptionParser
+
 from future.moves.urllib.parse import unquote_plus
-from magnetos.utils.converter import partial_base64_decode, \
-    partial_base32_decode, partial_base16_decode, base_padding, hex2str
-from mountains import PY3, PY2
-from mountains import logging
+from mountains import PY3, PY2, logging
 from mountains.encoding import utf8, to_unicode
 from mountains.logging import StreamHandler
+
+from ..utils.converter import partial_base64_decode, \
+    partial_base32_decode, partial_base16_decode, base_padding, hex2str
 
 logger = logging.getLogger(__name__)
 logging.init_log(StreamHandler(level=logging.DEBUG,

@@ -3,7 +3,7 @@
 from __future__ import unicode_literals, absolute_import
 from copy import deepcopy
 import string
-from mountains.util import PrintCollector
+from mountains.utils import PrintCollector
 
 """
 波利比奥斯方阵密码（Polybius Square Cipher或称波利比奥斯棋盘）是棋盘密码的一种，

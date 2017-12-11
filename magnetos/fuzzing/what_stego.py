@@ -9,9 +9,8 @@ import subprocess
 import zipfile
 from optparse import OptionParser
 
-from mountains import text_type
-from mountains.encoding import force_text
-from magnetos.utils import find_ctf_flag, file_strings
+from mountains import text_type, force_text
+from ..utils import find_ctf_flag, file_strings
 
 parser = OptionParser()
 parser.add_option("-f", "--file name", dest="file_name", type="string",

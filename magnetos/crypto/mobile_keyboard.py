@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # Created by restran on 2017/8/14
 from __future__ import unicode_literals, absolute_import
-from mountains.util import PrintCollector
+from mountains.utils import PrintCollector
 
 """
 手机9宫格键盘编码

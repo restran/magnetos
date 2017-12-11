@@ -2,7 +2,7 @@
 # -*- coding: utf_8 -*-
 # Author: 蔚蓝行
 from __future__ import unicode_literals
-from mountains.util import PrintCollector
+from mountains.utils import PrintCollector
 
 """
 破解栅栏密码python脚本

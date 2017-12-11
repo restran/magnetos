@@ -72,6 +72,7 @@ setup(
             'file_hash = magnetos.utils.file_hash:main',
             'file_strings = magnetos.utils.file_strings:main',
             'find_ctf_flag = magnetos.utils.find_ctf_flag:main',
+            'reverse_proxy = magnetos.proxy.reverse_proxy:main',
         ],
     },
     **kwargs

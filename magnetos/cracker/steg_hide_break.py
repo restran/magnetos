@@ -4,7 +4,7 @@ from __future__ import unicode_literals, absolute_import
 
 import subprocess
 import sys
-from magnetos.util import run_shell_cmd
+from magnetos.utils import run_shell_cmd
 
 """
 steghide 隐写的密码爆破

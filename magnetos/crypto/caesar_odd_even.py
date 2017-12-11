@@ -2,7 +2,7 @@
 # Created by restran on 2017/7/3
 
 from __future__ import unicode_literals
-from mountains.util import PrintCollector
+from mountains.utils import PrintCollector
 
 """"
 奇偶移位不同的凯撒
