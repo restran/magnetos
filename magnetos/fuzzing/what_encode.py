@@ -12,17 +12,13 @@ from functools import cmp_to_key
 from optparse import OptionParser
 
 from future.moves.urllib.parse import unquote_plus
-from mountains import PY3, PY2, logging
+from mountains import PY3, PY2
 from mountains.encoding import utf8, to_unicode
-from mountains.logging import StreamHandler
 
+from ..crypto.rot13 import decode_rot13
 from ..utils.converter import partial_base64_decode, \
     partial_base32_decode, partial_base16_decode, base_padding, hex2str
 
-logger = logging.getLogger(__name__)
-logging.init_log(StreamHandler(level=logging.DEBUG,
-                               format=logging.FORMAT_SIMPLE,
-                               datefmt=logging.DATE_FMT_SIMPLE))
 if PY3:
     from base64 import b85decode, a85decode
 
@@ -51,6 +47,7 @@ encode_methods = [
     'decimal_ascii',
     'decimal',  # 10 进制数据，转成16进制
     'zlib',
+    'rot13',
     'pawn_shop',  # 当铺密码
     'switch_case',  # 大小写交换
     'reverse_alphabet',  # 字母表逆序
@@ -66,9 +63,9 @@ parser.add_option("-D", "--max_depth", dest="max_depth", type="int",
 parser.add_option("-f", "--file name", dest="file_name", type="string",
                   help="read from file")
 parser.add_option("-s", "--save file name", dest="save_file_name", type="string",
-                  help="save decoded data to file")
+                  help="decode data according to -m params and save to file")
 parser.add_option("-m", "--decode method list", dest="method_list", type="string",
-                  help="decode method list, base64->hex")
+                  help="decode method list, e.g. base64->hex")
 parser.add_option("-x", "--only_printable", dest="only_printable", default=True,
                   action="store_false", help="disable only printable output")
 parser.add_option("-v", "--verbose", dest="verbose", default=False,
@@ -78,7 +75,7 @@ parser.add_option("-v", "--verbose", dest="verbose", default=False,
 class WhatEncode(object):
     def __init__(self, data_str, method_list=None, file_name=None,
                  save_file_name=None, only_printable=False,
-                 printable_percent=1.0, max_depth=10, verbose=False):
+                 printable_percent=1.0, max_depth=5, verbose=False):
         """
 
         :param data_str:
@@ -205,6 +202,11 @@ class WhatEncode(object):
                     decode_str = b85decode(utf8(encode_str))
                 else:
                     return False, encode_str
+            elif decode_method == 'rot13':
+                # 如果这里不做限制，会无限递归下去
+                if 'rot13' in m_list:
+                    return False, raw_encode_str
+                decode_str = decode_rot13(encode_str)
             elif decode_method == 'pawn_shop':
                 try:
                     encode_str = encode_str.decode('gb2312')
@@ -286,7 +288,7 @@ class WhatEncode(object):
                     encode_str = encode_str.replace(' ', '').strip()
                     tmp_bin_list = ['%03d' % int(bin(int(t))[2:]) for t in list(encode_str)]
                     tmp_bin_list = [t for t in tmp_bin_list]
-                    # logger.info(tmp_bin_list)
+                    # print(tmp_bin_list)
                     decode_str = ''.join(tmp_bin_list)
                 else:
                     return False, raw_encode_str
@@ -406,7 +408,7 @@ class WhatEncode(object):
                 return True, decode_str
         except Exception as e:
             if self.verbose:
-                logger.exception(e)
+                print(e)
             return False, raw_encode_str
 
     def parse(self):
@@ -480,11 +482,11 @@ class WhatEncode(object):
         return result_method_list
 
     def decode_with_methods(self, method_list):
-        success, decode_str = False, ''
+        success, decode_str = False, self.data_str
         for i, m in enumerate(method_list):
-            success, decode_str = self.parse_str(self.data_str, m, method_list[:i])
+            success, decode_str = self.parse_str(decode_str, m, method_list[:i])
             if not success:
-                logger.info('decode method list error, save file error')
+                print('decode method list error, save file error')
 
         return decode_str
 
@@ -494,7 +496,7 @@ class WhatEncode(object):
 
             decode_str = self.decode_with_methods(method_list)
             with open(self.save_file_name, 'wb') as f:
-                f.write(decode_str)
+                f.write(utf8(decode_str))
 
             return True
         else:
@@ -520,14 +522,14 @@ def main():
         return
 
     for item in result_method_list:
-        logger.info('methods: %s' % item['methods'])
-        logger.info('plain  : %s' % item['data'])
-        logger.info('size   : %s' % len(item['data']))
-        logger.info('')
+        print('methods: %s' % item['methods'])
+        print('plain  : %s' % item['data'])
+        print('size   : %s' % len(item['data']))
+        print('')
 
-    logger.info('------------------------------------------------')
-    logger.info('all test done, you should analysis result again')
-    logger.info('------------------------------------------------')
+    print('------------------------------------------------')
+    print('all test done, you should analysis result again')
+    print('------------------------------------------------')
 
 
 if __name__ == '__main__':

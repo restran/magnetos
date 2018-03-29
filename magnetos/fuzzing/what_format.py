@@ -17,10 +17,7 @@ def usage():
     data = '''
 [+] This script help you to find out the real format of the file or hide data from the file!
 [+] the result file save at 'output' dir, go and search it!
-[+] http://hi.baidu.com/l34rn
-[+] cnh4ckff [at] gmail.com
-
-[+] usage: %s <target file>
+[+] usage: %s <target file> <out path>
     ''' % sys.argv[0].split('\\')[-1]
     print(data)
 
