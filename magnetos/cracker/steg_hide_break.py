@@ -2,8 +2,8 @@
 # Created by restran on 2017/11/5
 from __future__ import unicode_literals, absolute_import
 
-import subprocess
 import sys
+
 from magnetos.utils import run_shell_cmd
 
 """

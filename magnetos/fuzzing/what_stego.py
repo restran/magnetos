@@ -13,8 +13,10 @@ from mountains import text_type, force_text
 from ..utils import find_ctf_flag, file_strings
 
 parser = OptionParser()
-parser.add_option("-f", "--file name", dest="file_name", type="string",
+parser.add_option("-f", "--file_name", dest="file_name", type="string",
                   help="read from file")
+parser.add_option("-s", "--flag_strict_mode", dest="flag_strict_mode", default=False,
+                  action="store_true", help="find flag strict mode")
 
 """
 自动检测文件可能的隐写，需要在Linux下使用 Python3 运行
@@ -25,7 +27,7 @@ TODO 文件中可见字符的处理，对于 \00 这种分隔开的字符，需�
 
 
 class WhatStego(object):
-    def __init__(self, file_path):
+    def __init__(self, file_path, flag_strict_mode=True):
         self.file_path = file_path
         self.current_path = os.path.dirname(file_path)
         base_name = os.path.basename(file_path)
@@ -36,7 +38,7 @@ class WhatStego(object):
         self.file_type = None
 
         self.output_path = os.path.join(self.current_path, 'output_%s' % base_name)
-
+        self.flag_strict_mode = flag_strict_mode
         # 需要强调输出的结果内容
         self.result_list = []
 
@@ -166,7 +168,7 @@ class WhatStego(object):
                 text = '    若没有分离出文件，很可能需要手动修复文件头'
                 self.result_list.append(text)
             if 'jphide' in stdout:
-                text = '[*] 使用了 jphide 隐写，如果没有提供密码，可以用 stegbreak 用弱口令爆破'
+                text = '[*] 使用了 jphide 隐写，如果没有提供密码，可以先用 Jphswin.exe 试一下空密码，再用 stegbreak 用弱口令爆破'
                 text = '[*] 也有可能是使用 steghide 隐写，如果没有提供密码，可以用 steg_hide_break 用弱口令爆破'
                 self.result_list.append(text)
                 text = '    注意，jphide 的检测很可能会出现误报，可以尝试'
@@ -241,28 +243,38 @@ class WhatStego(object):
                     continue
 
                 md5 = self.check_file_md5(path)
-                if md5 in self.extract_file_md5_dict:
-                    continue
-
-                self.extract_file_md5_dict[md5] = path
                 file_ext = os.path.splitext(path)[1].lower()
-                if file_ext == '':
-                    file_ext = 'unknown'
-                else:
+                if file_ext != '':
                     # 去掉前面的.
                     file_ext = file_ext[1:]
 
-                if file_ext in file_type_dict:
-                    item = file_type_dict[file_ext]
-                    item.append(path)
-                else:
-                    file_type_dict[file_ext] = [path]
+                if md5 in self.extract_file_md5_dict:
+                    old_file = self.extract_file_md5_dict[md5]
+                    # 如果是有扩展名的，则替换没有扩展名的
+                    if file_ext == '' or old_file['ext'] != '':
+                        continue
+
+                self.extract_file_md5_dict[md5] = {
+                    'path': path,
+                    'ext': file_ext
+                }
+
+        for k, v in self.extract_file_md5_dict.items():
+            if v['ext'] in file_type_dict:
+                item = file_type_dict[v['ext']]
+                item.append(v['path'])
+            else:
+                file_type_dict[v['ext']] = [v['path']]
+
         total_num = len(self.extract_file_md5_dict.keys())
         self.result_list.append('\n')
         self.result_list.append('[+] 分离出的文件数: %s' % total_num)
         has_zip = False
         # 把所有不重复的文件，按文件类型重新存储
         for file_type, v in file_type_dict.items():
+            if file_type == '':
+                file_type = 'unknown'
+
             path = os.path.join(self.output_path, file_type)
             if not os.path.exists(path):
                 os.mkdir(path)
@@ -304,10 +316,25 @@ class WhatStego(object):
         self.log('run binwalk')
         out_path = os.path.join(self.output_path, 'binwalk')
         self.remove_dir(out_path)
-
+        # binwalk 会自动对 zlib 文件解压缩，可以进一步对解压缩后的文件类型进行识别
         cmd = 'binwalk -v -M -e -C %s %s' % (out_path, self.file_path)
         stdout = self.run_shell_cmd(cmd)
         self.log(stdout)
+        self.process_binwalk_unknown(out_path)
+
+    def process_binwalk_unknown(self, binwalk_path):
+        self.log('\n--------------------')
+        self.log('process binwalk unknown files')
+        for root, dirs, files in os.walk(binwalk_path):
+            for f_name in files:
+                path = os.path.join(root, f_name)
+                file_ext = os.path.splitext(path)[1].lower()
+                if file_ext == '':
+                    out_path = os.path.join(root, 'out_' + f_name)
+                    cmd = 'what_format %s %s' % (path, out_path)
+                    stdout = self.run_shell_cmd(cmd)
+                    self.log(out_path)
+                    self.log(stdout)
 
     def foremost(self):
         self.log('\n--------------------')
@@ -356,13 +383,13 @@ class WhatStego(object):
         self.log('尝试从文件文本中提取 flag')
         find_flag_result_dict = {}
         zsteg_file = os.path.join(self.output_path, 'zsteg.txt')
-        result = find_ctf_flag.get_flag_from_file(zsteg_file, find_flag_result_dict)
+        result = find_ctf_flag.get_flag_from_file(zsteg_file, self.flag_strict_mode, find_flag_result_dict)
         self.log(result)
         strings_file = os.path.join(self.output_path, 'strings_1.txt')
-        result = find_ctf_flag.get_flag_from_file(strings_file, find_flag_result_dict)
+        result = find_ctf_flag.get_flag_from_file(strings_file, self.flag_strict_mode, find_flag_result_dict)
         self.log(result)
         strings_file = os.path.join(self.output_path, 'strings_2.txt')
-        result = find_ctf_flag.get_flag_from_file(strings_file, find_flag_result_dict)
+        result = find_ctf_flag.get_flag_from_file(strings_file, self.flag_strict_mode, find_flag_result_dict)
         self.log(result)
         self.log('=======================')
         self.log_file.close()
@@ -380,7 +407,7 @@ def main():
         return
 
     file_path = os.path.join(os.getcwd(), file_name)
-    WhatStego(file_path).run()
+    WhatStego(file_path, options.flag_strict_mode).run()
 
 
 if __name__ == '__main__':

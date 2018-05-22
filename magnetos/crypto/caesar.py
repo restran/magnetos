@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 from ..crypto import smart_output
-from mountains.util import PrintCollector
+from mountains.utils import PrintCollector
 
 """
 破解凯撒密码python脚本

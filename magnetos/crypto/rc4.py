@@ -2,7 +2,7 @@
 # Created by restran on 2016/12/4
 # https://github.com/RyanKung/rc4-python3/blob/master/rc4/rc4.py
 
-__all__ = ['encrypt', 'decrypt', 'encrypt_json', 'decrypt_json']
+__all__ = ['encrypt', 'decrypt']
 
 
 def crypt(data: bytes, key: bytes) -> bytes:

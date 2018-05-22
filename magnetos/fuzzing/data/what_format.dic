@@ -18,6 +18,7 @@ mp3 ::  MP3 audio (ID3 v2.x tag)    ::  49 44 33 ::
 avi ::  AVI Audio Video Interleaved    ::  52 49 46 46 ::
 pyc ::  Python 2.7.x bytecode      :: 03 f3 0d 0a  ::
 pyc ::  Python 3.5.x bytecode      :: 16 0D 0D 0A ::
+class :: Java bytecode             :: CA FE BA BE ::
 bmp ::  AWBM Award BIOS bitmap     :: 41 57 42 4D   ::
 bmp ::  Windows Bitmap      ::  42 4D  ::
 wav ::  RIFF/WAVe standard Audio    ::  52 49 46 46   ::

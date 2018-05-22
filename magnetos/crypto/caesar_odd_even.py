@@ -56,7 +56,8 @@ def decode(data, verbose=True):
 
     return
 
+
 if __name__ == '__main__':
     # d = "vbkq{ukCkS_vrduztucCVQXVuvzuckrvtZDUBTGYSkvcktv}"
     d = "DISJV_Hej_UdShofjyed"
-    decrypt(d)
+    decode(d)
