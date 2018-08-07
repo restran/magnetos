@@ -169,7 +169,8 @@ class WhatStego(object):
                 self.result_list.append(text)
             if 'jphide' in stdout:
                 text = '[*] 使用了 jphide 隐写，如果没有提供密码，可以先用 Jphswin.exe 试一下空密码，再用 stegbreak 用弱口令爆破'
-                text = '[*] 也有可能是使用 steghide 隐写，如果没有提供密码，可以用 steg_hide_break 用弱口令爆破'
+                text = '[*] 也有可能是 steghide 隐写，如果没有提供密码，可以用 steg_hide_break 用弱口令爆破'
+                text = '[*] 也有可能是 outguess 隐写，outguess -r in.jpg out.txt'
                 self.result_list.append(text)
                 text = '    注意，jphide 的检测很可能会出现误报，可以尝试'
                 self.result_list.append(text)
@@ -354,6 +355,16 @@ class WhatStego(object):
         stdout = self.run_shell_cmd(cmd)
         self.log(stdout)
 
+    def run_exif_tool(self):
+        if self.file_type not in ['bmp', 'png', 'jpg', 'jpeg', 'gif']:
+            return
+
+        self.log('\n--------------------')
+        self.log('run exiftool')
+        cmd = 'exiftool %s' % self.file_path
+        stdout = self.run_shell_cmd(cmd)
+        self.log(stdout)
+
     def run(self):
         # 删除旧的数据
         self.remove_dir(self.output_path)
@@ -374,6 +385,7 @@ class WhatStego(object):
         self.stegdetect()
         self.check_strings()
         self.check_extracted_file()
+        self.run_exif_tool()
 
         self.log('\n--------------------')
         for t in self.result_list:

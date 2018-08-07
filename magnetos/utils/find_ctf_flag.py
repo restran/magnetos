@@ -44,8 +44,8 @@ def get_flag_from_file(file_path, strict_mode=False, result_dict=None):
     re_list = [
         # (r'(?:key|flag|ctf)\{[^\{\}]{3,35}\}', re.I),
         # (r'(?:key|KEY|flag|FLAG|ctf|CTF)+[\x20-\x7E]{3,50}', re.I),
-        (r'(?:key|flag|ctf)[\x20-\x7E]{5,40}', re.I),
-        (r'(?:key|flag|ctf)[\x20-\x7E]{0,3}(?::|=|\{|is)[\x20-\x7E]{,40}', re.I),
+        (r'(?:key|flag|ctf|synt|galf)[\x20-\x7E]{5,40}', re.I),
+        (r'(?:key|flag|ctf|synt|galf)[\x20-\x7E]{0,3}(?::|=|\{|is)[\x20-\x7E]{,40}', re.I),
     ]
 
     if not strict_mode:
