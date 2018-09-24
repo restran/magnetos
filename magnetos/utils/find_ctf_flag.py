@@ -17,10 +17,8 @@ parser.add_option("-f", "--file name", dest="file_name", type="string",
                   help="read from file")
 parser.add_option("-s", "--strict mode", dest="strict_mode",
                   default=False, action="store_true",
-                  help="use strict mode, only exists ctf, flag, key ")
+                  help="use strict mode, only exists ctf, flag, key")
 
-
-# TODO 对目录的支持
 
 def get_flag_from_file(file_path, strict_mode=False, result_dict=None):
     if not os.path.exists(file_path):
@@ -96,8 +94,20 @@ def main():
         parser.print_help()
         return
 
-    result = get_flag_from_file(file_name, options.strict_mode)
-    print(result)
+    if not os.path.exists(file_name):
+        return
+
+    if os.path.isfile(file_name):
+        result = get_flag_from_file(file_name, options.strict_mode)
+        print(result)
+    elif os.path.isdir(file_name):
+        for root, dirs, files in os.walk(file_name):
+            for f in files:
+                f_name = os.path.join(root, f)
+                print('\n---------------------')
+                print('file: %s' % f_name)
+                result = get_flag_from_file(f_name, options.strict_mode)
+                print(result)
 
 
 if __name__ == '__main__':

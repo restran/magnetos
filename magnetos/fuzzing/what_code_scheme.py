@@ -125,6 +125,12 @@ def detect_code_scheme(e_str):
     if shadow_code.match(e_str):
         scheme_list.append('shadow code')
 
+    if e_str.startswith('PYIIIIIIIIII'):
+        scheme_list.append('win32 shellcode')
+
+    if len(set(e_str)) == 5 and len(e_str) % 5 == 0:
+        scheme_list.append('只有5种字符：波利比奥斯方阵密码（可以先统计字符频率）')
+
     return scheme_list
 
 

@@ -56,15 +56,15 @@ encode_methods = [
 ]
 
 parser = OptionParser()
-parser.add_option("-d", "--data str", dest="data_str", type="string",
+parser.add_option("-d", "--data_str", dest="data_str", type="string",
                   help="data str")
 parser.add_option("-D", "--max_depth", dest="max_depth", type="int",
                   default=10, help="max depth")
-parser.add_option("-f", "--file name", dest="file_name", type="string",
+parser.add_option("-f", "--file_name", dest="file_name", type="string",
                   help="read from file")
-parser.add_option("-s", "--save file name", dest="save_file_name", type="string",
+parser.add_option("-s", "--save_file_name", dest="save_file_name", type="string",
                   help="decode data according to -m params and save to file")
-parser.add_option("-m", "--decode method list", dest="method_list", type="string",
+parser.add_option("-m", "--decode_method_list", dest="method_list", type="string",
                   help="decode method list, e.g. base64->hex")
 parser.add_option("-x", "--only_printable", dest="only_printable", default=True,
                   action="store_false", help="disable only printable output")

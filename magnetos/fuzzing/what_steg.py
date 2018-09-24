@@ -351,7 +351,7 @@ class WhatStego(object):
         self.log('run what_format')
         out_path = os.path.join(self.output_path, 'what_format')
         self.remove_dir(out_path)
-        cmd = 'what_format %s %s' % (self.file_path, out_path)
+        cmd = 'what_format -f %s -o %s -e bmp -e gif' % (self.file_path, out_path)
         stdout = self.run_shell_cmd(cmd)
         self.log(stdout)
 

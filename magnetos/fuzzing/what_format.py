@@ -7,29 +7,36 @@ import sys
 import binascii
 import traceback
 from mountains.encoding import utf8, to_unicode
+from optparse import OptionParser
 
 # 当前项目所在路径
 BASE_PATH = os.path.dirname(os.path.abspath(__file__))
 DICT_FILE_NAME = os.path.join(BASE_PATH, 'data/what_format.dic')
 
-
-def usage():
-    data = '''
-[+] This script help you to find out the real format of the file or hide data from the file!
-[+] the result file save at 'output' dir, go and search it!
-[+] usage: %s <target file> <out path>
-    ''' % sys.argv[0].split('\\')[-1]
-    print(data)
+parser = OptionParser()
+parser.add_option("-f", "--file_name", dest="file_name", type="string",
+                  help="target file")
+parser.add_option("-o", "--out_path", dest="out_path", type="string",
+                  help="out path")
+parser.add_option("-e", "--exclude", dest="exclude", default=None,
+                  action="append", help="exclude file ext")
 
 
 class WhatFormat(object):
-    def __init__(self, file_name, out_path='output'):
+    def __init__(self, file_name, out_path='output', exclude=None):
         self.file_name = file_name
         self.out_path = out_path
+        # 排除的扩展名
+        self.exclude = exclude
         self.hex_data = ''
 
-    @classmethod
-    def load_dict(cls, file_name):
+        if self.exclude is None:
+            self.exclude = {}
+
+        for k, v in self.exclude.items():
+            self.exclude[k] = v.lower()
+
+    def load_dict(self, file_name):
         dict_list = []
         with open(file_name, 'rb') as f:
             for line in f:
@@ -38,6 +45,8 @@ class WhatFormat(object):
                     ext, des, hex_start, hex_end = line.split('::')
                     hex_start = hex_start.lower().replace(' ', '')
                     hex_end = hex_end.lower().replace(' ', '')
+                    if ext.lower() in self.exclude:
+                        continue
                     item = [ext, des, hex_start, hex_end]
                     item = tuple([to_unicode(t.strip()) for t in item])
                     dict_list.append(item)
@@ -153,17 +162,18 @@ class WhatFormat(object):
 
 
 def main():
-    if len(sys.argv) < 2:
-        usage()
-        exit()
+    (options, args) = parser.parse_args()
+    if options.file_name is None:
+        parser.print_help()
+        return
 
-    file_name = sys.argv[1]
-    if len(sys.argv) > 2:
-        out_path = sys.argv[2]
-    else:
+    file_name = options.file_name
+    if options.out_path is None:
         out_path = 'output'
+    else:
+        out_path = options.out_path
 
-    WhatFormat(file_name, out_path).run()
+    WhatFormat(file_name, out_path, options.exclude).run()
 
 
 if __name__ == '__main__':
