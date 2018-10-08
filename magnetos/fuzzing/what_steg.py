@@ -4,13 +4,22 @@ from __future__ import unicode_literals, absolute_import
 
 import hashlib
 import os
+import re
 import shutil
 import subprocess
+from functools import cmp_to_key
 import zipfile
+from PIL import Image
 from optparse import OptionParser
+import binascii
+import struct
+from mountains import text_type, force_text, force_bytes
+from mountains.file import write_bytes_file
+from mountains import logging
+from mountains.logging import ColorStreamHandler, FileHandler
 
-from mountains import text_type, force_text
 from ..utils import find_ctf_flag, file_strings
+from ..utils.converter import partial_base64_decode
 
 parser = OptionParser()
 parser.add_option("-f", "--file_name", dest="file_name", type="string",
@@ -19,14 +28,25 @@ parser.add_option("-s", "--flag_strict_mode", dest="flag_strict_mode", default=F
                   action="store_true", help="find flag strict mode")
 
 """
+依赖 pngcheck、zsteg、stegdetect
+"""
+
+"""
 自动检测文件可能的隐写，需要在Linux下使用 Python3 运行
 一些依赖还需要手动安装
 
 TODO 文件中可见字符的处理，对于 \00 这种分隔开的字符，需要能够分离
+
+FFD9 后的文件内容显示出来
 """
 
+logging.init_log(ColorStreamHandler(logging.INFO, '%(message)s'),
+                 FileHandler(level=logging.INFO))
 
-class WhatStego(object):
+logger = logging.getLogger(__name__)
+
+
+class WhatSteg(object):
     def __init__(self, file_path, flag_strict_mode=True):
         self.file_path = file_path
         self.current_path = os.path.dirname(file_path)
@@ -44,7 +64,16 @@ class WhatStego(object):
 
         self.extract_file_md5_dict = {}
         self.log_file_name = 'log.txt'
-        self.log_file = None
+
+        # 删除旧的数据
+        self.remove_dir(self.output_path)
+        # 创建输出路径
+        if not os.path.exists(self.output_path):
+            os.mkdir(self.output_path)
+
+        logging.init_log(ColorStreamHandler(logging.INFO, '%(message)s'),
+                         FileHandler(filename=os.path.join(self.output_path, self.log_file_name),
+                                     format='%(message)s', level=logging.DEBUG))
 
     def run_shell_cmd(self, cmd):
         try:
@@ -57,14 +86,13 @@ class WhatStego(object):
                 stderr = ''
             return '%s%s' % (stdout, stderr)
         except Exception as e:
-            self.log(e)
-            self.log('!!!error!!!')
-            self.log(cmd)
+            logger.error(e)
+            logger.error(cmd)
             return ''
 
     def strings(self):
-        self.log('\n--------------------')
-        self.log('run strings')
+        logger.info('\n--------------------')
+        logger.info('run strings')
         out_file = os.path.join(self.output_path, 'strings_1.txt')
         cmd = 'strings %s > %s' % (self.file_path, out_file)
         self.run_shell_cmd(cmd)
@@ -83,11 +111,11 @@ class WhatStego(object):
 
     def png_check(self):
         if self.file_type == 'png':
-            self.log('\n--------------------')
-            self.log('run pngcheck')
+            logger.info('\n--------------------')
+            logger.info('run pngcheck')
             cmd = 'pngcheck -vv %s' % self.file_path
             stdout = self.run_shell_cmd(cmd)
-            self.log(stdout)
+            logger.info(stdout)
             if 'CRC error' in stdout:
                 self.result_list.append('[*] PNG 文件 CRC 错误，请检查图片的大小是否有被修改')
 
@@ -107,15 +135,104 @@ class WhatStego(object):
                     except:
                         pass
 
-    def log(self, text):
-        text = text_type(text)
-        print(text)
-        self.log_file.write(text)
-        self.log_file.write('\n')
+    def img_height_check(self):
+        """
+        检测文件高度被修改过
+        如果是修改宽度，会导致图片偏移而显示混乱
+        windows忽略crc32检验码，png 可以直接修改任意高度，linux 会校验crc32，导致无法打开
+        bmp 修改太高会导致文件打不开
+        :return:
+        """
+        if self.file_type not in ('png', 'bmp', 'jpg'):
+            return
+
+        with open(self.file_path, 'rb') as f:
+            data = f.read()
+
+        if self.file_type == 'png':
+            bytes_data = data[12:33]
+            crc32 = bytes_data[-4:]
+            crc32 = struct.unpack('>i', crc32)[0]
+
+            if binascii.crc32(bytes_data[:-4]) & 0xffffffff != crc32:
+                logger.warning('PNG图片宽高CRC32校验失败，文件宽高被修改过')
+                logger.warning('尝试爆破图片高度')
+                for i in range(1, 65535):
+                    height = struct.pack('>i', i)
+                    check_data = bytes_data[:8] + height + bytes_data[-9:-4]
+                    crc32_result = binascii.crc32(check_data) & 0xffffffff
+                    if crc32_result == crc32:
+                        logger.warning('找到正确的图片高度: %s' % i)
+                        for x in range(4):
+                            data = bytearray(data)
+                            data[20 + x] = height[x]
+                            data = bytes(data)
+
+                        logger.warning('保存修复后的文件: fix_height.png')
+                        out_path = os.path.join(self.output_path, 'fix_height.png')
+                        write_bytes_file(out_path, data)
+                        break
+                else:
+                    logger.warning('未找到正确的图片高度，请手动修改')
+        elif self.file_type == 'jpg':
+            im = Image.open(self.file_path)
+            # 获得图像尺寸:
+            w, h = im.size
+            print(w, h)
+            x_img = struct.pack('>h', w)
+            y_img = struct.pack('>h', h)
+            begin = 0
+            while True:
+                x = data.find(y_img + x_img, begin)
+                if x <= 0:
+                    break
+
+                bytes_data = data[x - 5:x + 5]
+                sz_section = struct.unpack('>h', bytes_data[2:4])[0]
+                nr_comp = struct.unpack('>b', bytes_data[-1:])[0]
+                if sz_section - 8 != nr_comp * 3:
+                    begin = x
+                else:
+                    # jpg可以任意增加高度，不会影响显示，图片高度增加为1.1倍
+                    new_height = struct.pack('>h', int(h * 1.2))
+                    for y_i in range(2):
+                        data = bytearray(data)
+                        data[x + y_i] = new_height[y_i]
+                        data = bytes(data)
+
+                    logger.warning('保存扩展高度后的文件: enlarge_height.jpg')
+                    out_path = os.path.join(self.output_path, 'enlarge_height.jpg')
+                    write_bytes_file(out_path, data)
+                    break
+        elif self.file_type == 'bmp':
+            im = Image.open(self.file_path)
+            # 获得图像尺寸:
+            w, h = im.size
+            file_size = os.path.getsize(self.file_path)
+            bit_count = data[28:30]
+            # 1个像素占用多少字节，这个值一般是24或者32，bmp 图片使用小端序
+            bit_count = struct.unpack('<h', bit_count)[0]
+            if bit_count not in (24, 32):
+                logger.warning('异常的 bmp bit count %s' % bit_count)
+            real_height = int((file_size - 54) / (bit_count / 8) / w)
+
+            if h != real_height:
+                logger.warning('图片高度不正确，或者图片末尾附加了数据')
+                logger.warning('正确的高度为: %s' % real_height)
+                # bmp 图片使用小端序
+                y_img = struct.pack('<i', real_height)
+                for x in range(4):
+                    data = bytearray(data)
+                    data[22 + x] = y_img[x]
+                    data = bytes(data)
+
+                logger.warning('保存扩展高度后的文件: enlarge_height.bmp')
+                out_path = os.path.join(self.output_path, 'enlarge_height.bmp')
+                write_bytes_file(out_path, data)
 
     def check_file(self):
-        self.log('\n--------------------')
-        self.log('run file')
+        logger.info('\n--------------------')
+        logger.info('run file')
         cmd = 'file %s' % self.file_path
         stdout = self.run_shell_cmd(cmd)
         if 'PNG image data' in stdout:
@@ -137,12 +254,87 @@ class WhatStego(object):
         检测 png 和 bmp 的隐写
         :return:
         """
-        if self.file_type in ['bmp', 'png']:
-            self.log('\n--------------------')
-            self.log('run zsteg')
-            out_file = os.path.join(self.output_path, 'zsteg.txt')
-            cmd = 'zsteg -a -v %s > %s' % (self.file_path, out_file)
-            self.run_shell_cmd(cmd)
+        if self.file_type not in ['bmp', 'png']:
+            return
+
+        logger.info('\n--------------------')
+        logger.info('run zsteg')
+        out_file = os.path.join(self.output_path, 'zsteg.txt')
+        cmd = 'zsteg -a -v %s > %s' % (self.file_path, out_file)
+        self.run_shell_cmd(cmd)
+
+        file_list = [
+            ['PC bitmap, Windows', 'bmp'],
+            ['PNG image data', 'png'],
+            ['JPEG image data', 'jpg'],
+            ['GIF image data', 'gif'],
+            ['Zip archive data', 'zip'],
+            ['RAR archive data', 'rar'],
+            ['gzip compressed data', 'gz'],
+            ['7-zip archive data', '7z'],
+            ['PDF document', 'pdf'],
+            ['Python script', 'py'],
+            ['python ', 'pyc'],
+            ['tcpdump capture file', 'pcap'],
+            ['pcap-ng capture file', 'pcapng'],
+            ['PE32 executable ', 'exe'],
+            ['PE64 executable ', 'exe'],
+            ['ELF ', 'elf'],
+        ]
+
+        file_list = [[' file: %s' % t[0], t[1]] for t in file_list]
+        # 自动检测 zsteg 隐写是否有检测到隐藏文件
+        line_count = 0
+        out_path = os.path.join(self.output_path, 'zsteg')
+        if not os.path.exists(out_path):
+            os.makedirs(out_path)
+
+        zsteg_text_dict = {}
+
+        with open(out_file, 'r') as f:
+            for line in f:
+                line = line.strip()
+                line_count += 1
+                for i, t in enumerate(file_list):
+                    # 记录所有的 text 数据
+                    if '.. text: "' in line and line.endswith('"'):
+                        md5 = hashlib.md5(force_bytes(line)).hexdigest()
+                        if md5 not in zsteg_text_dict:
+                            zsteg_text_dict[md5] = line
+                        continue
+
+                    if t[0] not in line:
+                        continue
+
+                    index = line.find(t[0])
+                    if index > 0:
+                        # 检测到文件后，自动导出文件
+                        zsteg_payload = line[:index].rstrip(' .').strip()
+                        if len(zsteg_payload.split(',')) > 0:
+                            f_name = '%s_%s.%s' % (line_count, i, t[1])
+                            out_file_path = os.path.join(out_path, f_name)
+                            cmd = "zsteg %s -E '%s' > %s" % (
+                                self.file_path, zsteg_payload, out_file_path)
+                            logger.warning('[*] zsteg 检测到文件 %s' % line.strip())
+                            self.run_shell_cmd(cmd)
+
+                    msg = '[*] zsteg日志第%d行检测到文件%s' % (
+                        line_count, t[0][len(' file: '):])
+                    self.result_list.append(msg)
+
+        text_out_file = os.path.join(self.output_path, 'zsteg_text.txt')
+        with open(text_out_file, 'w') as f:
+            for line in zsteg_text_dict.values():
+                f.write(line)
+                f.write('\n')
+
+                # 自动解码 base64 文本
+                text = line[line.index('.. text: "') + len('.. text: "'):-1]
+                b64rex = re.compile('^[A-Za-z0-9+/=]{4,}$')
+                if b64rex.match(text):
+                    text = file_strings.bytes_2_printable_strings(partial_base64_decode(text))
+                    if len(text) > 5:
+                        f.write('[base64_decode]: {}\n'.format(text))
 
     def stegdetect(self):
         """
@@ -150,12 +342,12 @@ class WhatStego(object):
         :return:
         """
         if self.file_type == 'jpg':
-            self.log('\n--------------------')
-            self.log('run stegdetect')
+            logger.info('\n--------------------')
+            logger.info('run stegdetect')
             # -s 表示敏感度，太低了会检测不出来，太大了会误报
             cmd = 'stegdetect -s 5 %s' % self.file_path
             stdout = self.run_shell_cmd(cmd)
-            self.log(stdout)
+            logger.info(stdout)
             stdout = stdout.lower()
             if 'negative' not in stdout.lower():
                 self.result_list.append('\n')
@@ -202,12 +394,12 @@ class WhatStego(object):
                     return True
                 except Exception as e:
                     if 'password required' in e:
-                        self.log('压缩包 %s 需要密码' % tmp_file_path)
+                        logger.info('压缩包 %s 需要密码' % tmp_file_path)
                     else:
-                        self.log('压缩包 %s 解压失败' % tmp_file_path)
+                        logger.info('压缩包 %s 解压失败' % tmp_file_path)
                     return False
         except Exception as e:
-            self.log('压缩包 %s 解压失败' % tmp_file_path)
+            logger.info('压缩包 %s 解压失败' % tmp_file_path)
             return False
 
     def unzip_archive(self):
@@ -225,6 +417,7 @@ class WhatStego(object):
             'strings_1.txt',
             'strings_2.txt',
             'zsteg.txt',
+            'zsteg_text.txt',
             'log.txt'
         ]
         exclude_file_list = [
@@ -241,6 +434,12 @@ class WhatStego(object):
             for f_name in files:
                 path = os.path.join(root, f_name)
                 if path in exclude_file_list:
+                    continue
+
+                # 删除大小为空的文件
+                file_size = os.path.getsize(path)
+                if file_size <= 0:
+                    os.remove(path)
                     continue
 
                 md5 = self.check_file_md5(path)
@@ -281,11 +480,18 @@ class WhatStego(object):
                 os.mkdir(path)
 
             self.result_list.append('[+] %s: %s' % (file_type, len(v)))
+            file_name_dict = {}
             for i, f_p in enumerate(v):
-                if file_type != 'unknown':
-                    f_name = '%s.%s' % (i, file_type)
+                # 默认使用分离文件时的文件名，如果出现冲突，再用数字
+                base_name = os.path.basename(f_p)
+                if base_name not in file_name_dict:
+                    f_name = base_name
+                    file_name_dict[f_name] = None
                 else:
-                    f_name = '%s' % i
+                    if file_type != 'unknown':
+                        f_name = '%s.%s' % (i, file_type)
+                    else:
+                        f_name = '%s' % i
 
                 p = os.path.join(path, f_name)
                 # 移动文件
@@ -303,6 +509,8 @@ class WhatStego(object):
         self.remove_dir(path)
         path = os.path.join(self.output_path, 'binwalk')
         self.remove_dir(path)
+        path = os.path.join(self.output_path, 'zsteg')
+        self.remove_dir(path)
 
         if has_zip:
             self.result_list.append('[!] 如果 zip 文件打开后有很多 xml，很可能是 docx')
@@ -313,68 +521,142 @@ class WhatStego(object):
             shutil.rmtree(dir_path)
 
     def binwalk(self):
-        self.log('\n--------------------')
-        self.log('run binwalk')
+        logger.info('\n--------------------')
+        logger.info('run binwalk')
         out_path = os.path.join(self.output_path, 'binwalk')
         self.remove_dir(out_path)
         # binwalk 会自动对 zlib 文件解压缩，可以进一步对解压缩后的文件类型进行识别
         cmd = 'binwalk -v -M -e -C %s %s' % (out_path, self.file_path)
         stdout = self.run_shell_cmd(cmd)
-        self.log(stdout)
+        # 不要输出那么多
+        logger.info(stdout.splitlines()[:20])
         self.process_binwalk_unknown(out_path)
 
     def process_binwalk_unknown(self, binwalk_path):
-        self.log('\n--------------------')
-        self.log('process binwalk unknown files')
+        logger.info('\n--------------------')
+        logger.info('process binwalk unknown files')
         for root, dirs, files in os.walk(binwalk_path):
             for f_name in files:
                 path = os.path.join(root, f_name)
                 file_ext = os.path.splitext(path)[1].lower()
                 if file_ext == '':
                     out_path = os.path.join(root, 'out_' + f_name)
-                    cmd = 'what_format %s %s' % (path, out_path)
+                    cmd = 'what_format -f %s -o %s -e bmp -e gif -e pdf' % (path, out_path)
                     stdout = self.run_shell_cmd(cmd)
-                    self.log(out_path)
-                    self.log(stdout)
+                    logger.info(out_path)
+                    logger.info(stdout)
 
     def foremost(self):
-        self.log('\n--------------------')
-        self.log('run foremost')
+        logger.info('\n--------------------')
+        logger.info('run foremost')
         out_path = os.path.join(self.output_path, 'foremost')
         self.remove_dir(out_path)
         cmd = 'foremost -o %s %s' % (out_path, self.file_path)
         stdout = self.run_shell_cmd(cmd)
-        self.log(stdout)
+        # 不要输出那么多
+        logger.info(stdout.splitlines()[:20])
 
     def what_format(self):
-        self.log('\n--------------------')
-        self.log('run what_format')
+        logger.info('\n--------------------')
+        logger.info('run what_format')
         out_path = os.path.join(self.output_path, 'what_format')
         self.remove_dir(out_path)
-        cmd = 'what_format -f %s -o %s -e bmp -e gif' % (self.file_path, out_path)
+        cmd = 'what_format -f %s -o %s -e bmp -e gif -e pdf' % (self.file_path, out_path)
         stdout = self.run_shell_cmd(cmd)
-        self.log(stdout)
+        # 不要输出那么多
+        logger.info(stdout.splitlines()[:30])
 
     def run_exif_tool(self):
         if self.file_type not in ['bmp', 'png', 'jpg', 'jpeg', 'gif']:
             return
 
-        self.log('\n--------------------')
-        self.log('run exiftool')
+        logger.info('\n--------------------')
+        logger.info('run exiftool')
         cmd = 'exiftool %s' % self.file_path
         stdout = self.run_shell_cmd(cmd)
-        self.log(stdout)
+        logger.info(stdout)
+
+    def clean_find_ctf_flag_result(self, result):
+        def re_match_flag(a):
+            re_list = [
+                (r'(key|flag|ctf|synt|galf)[\x20-\x7E]{5,40}', re.I),
+                (r'k[\x20-\x7E]?e[\x20-\x7E]?y[\x20-\x7E]?(:|=|\{|is)[\x20-\x7E]{3,40}', re.I),
+                (r'f[^\w]?l[\x20-\x7E]?a[\x20-\x7E]?g[\x20-\x7E]?(:|=|\{|is)[\x20-\x7E]{3,40}', re.I),
+                (r'c[\x20-\x7E]?t[\x20-\x7E]?f[\x20-\x7E]?(?::|=|\{|is)[\x20-\x7E]{3,40}', re.I),
+                (r's[\x20-\x7E]?y[\x20-\x7E]?n[\x20-\x7E]?t[\x20-\x7E]?(:|=|\{|is)[\x20-\x7E]{3,40}', re.I),
+                (r'g[\x20-\x7E]?a[\x20-\x7E]?l[\x20-\x7E]?f[\x20-\x7E]?(:|=|\{|is)[\x20-\x7E]{3,40}', re.I),
+            ]
+
+            pattern_list = [re.compile(*r) for r in re_list]
+            for p in pattern_list:
+                r = p.search(a)
+                if r:
+                    return True
+            else:
+                return False
+
+        def re_match_flag_2(a):
+            re_list = [
+                (r'(key|flag|ctf|synt|galf)(:|=|\{|is)[\x20-\x7E]{5,40}\}', re.I),
+            ]
+
+            pattern_list = [re.compile(*r) for r in re_list]
+            for p in pattern_list:
+                r = p.search(a)
+                if r:
+                    return True
+            else:
+                return False
+
+        def math_flag_bracket(a):
+            count = 0
+            if '{' in a:
+                count += 1
+            if '}' in a:
+                count += 1
+
+            return count
+
+        def sort_result(a, b):
+            found_a = re_match_flag(a)
+            found_b = re_match_flag(b)
+
+            if found_a and not found_b:
+                return 1
+            elif not found_a and found_b:
+                return -1
+            else:
+                # 使用更精确的flag特征判断
+                found_a = re_match_flag_2(a)
+                found_b = re_match_flag_2(b)
+                if found_a and not found_b:
+                    return 1
+                elif not found_a and found_b:
+                    return -1
+                else:
+                    # 如果有括号，则准确度更高
+                    count_a_bracket = math_flag_bracket(a)
+                    count_b_bracket = math_flag_bracket(b)
+                    if count_a_bracket > count_b_bracket:
+                        return 1
+                    elif count_a_bracket < count_b_bracket:
+                        return -1
+
+                return 0
+
+        result_list = result.splitlines()
+        result_list = sorted(result_list, key=cmp_to_key(sort_result), reverse=True)
+
+        max_line = 20
+        if len(result_list) > max_line:
+            logger.info('匹配的内容较多，只显示前%s条，更多数据在日志文件中查看' % max_line)
+
+        for x in result_list[:max_line]:
+            logger.warning(x)
+        for x in result_list[max_line:]:
+            logger.debug(x)
 
     def run(self):
-        # 删除旧的数据
-        self.remove_dir(self.output_path)
-        # 创建输出路径
-        if not os.path.exists(self.output_path):
-            os.mkdir(self.output_path)
-
-        log_file = os.path.join(self.output_path, self.log_file_name)
-        self.log_file = open(log_file, 'w')
-
         self.check_file()
         self.strings()
         self.zsteg()
@@ -386,25 +668,26 @@ class WhatStego(object):
         self.check_strings()
         self.check_extracted_file()
         self.run_exif_tool()
+        self.img_height_check()
 
-        self.log('\n--------------------')
+        logger.info('\n--------------------')
         for t in self.result_list:
-            self.log(t)
+            logger.warning(t)
 
-        self.log('\n--------------------')
-        self.log('尝试从文件文本中提取 flag')
+        logger.info('\n--------------------')
+        logger.info('尝试从文件文本中提取 flag')
         find_flag_result_dict = {}
+        # zsteg 日志文件，因为有16进制数据，如果不用严格模式，会有很多误报的数据
         zsteg_file = os.path.join(self.output_path, 'zsteg.txt')
-        result = find_ctf_flag.get_flag_from_file(zsteg_file, self.flag_strict_mode, find_flag_result_dict)
-        self.log(result)
+        find_ctf_flag.get_flag_from_file(zsteg_file, True, find_flag_result_dict)
         strings_file = os.path.join(self.output_path, 'strings_1.txt')
-        result = find_ctf_flag.get_flag_from_file(strings_file, self.flag_strict_mode, find_flag_result_dict)
-        self.log(result)
+        find_ctf_flag.get_flag_from_file(strings_file, self.flag_strict_mode, find_flag_result_dict)
         strings_file = os.path.join(self.output_path, 'strings_2.txt')
+        find_ctf_flag.get_flag_from_file(strings_file, self.flag_strict_mode, find_flag_result_dict)
+        strings_file = os.path.join(self.output_path, 'zsteg_text.txt')
         result = find_ctf_flag.get_flag_from_file(strings_file, self.flag_strict_mode, find_flag_result_dict)
-        self.log(result)
-        self.log('=======================')
-        self.log_file.close()
+        self.clean_find_ctf_flag_result(result)
+        logger.info('=======================')
 
 
 def main():
@@ -419,7 +702,7 @@ def main():
         return
 
     file_path = os.path.join(os.getcwd(), file_name)
-    WhatStego(file_path, options.flag_strict_mode).run()
+    WhatSteg(file_path, options.flag_strict_mode).run()
 
 
 if __name__ == '__main__':

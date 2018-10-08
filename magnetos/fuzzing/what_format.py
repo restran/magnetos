@@ -31,10 +31,9 @@ class WhatFormat(object):
         self.hex_data = ''
 
         if self.exclude is None:
-            self.exclude = {}
+            self.exclude = []
 
-        for k, v in self.exclude.items():
-            self.exclude[k] = v.lower()
+        self.exclude = [v.lower() for v in self.exclude]
 
     def load_dict(self, file_name):
         dict_list = []
@@ -143,6 +142,9 @@ class WhatFormat(object):
             ''' % (i, ext, des, startup, end, file_name))
 
     def save_file(self, file_name, data):
+        if len(data) <= 0:
+            return
+
         if not os.path.exists(self.out_path):
             os.mkdir(self.out_path)
 
