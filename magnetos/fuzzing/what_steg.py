@@ -580,11 +580,11 @@ class WhatSteg(object):
         def re_match_flag(a):
             re_list = [
                 (r'(key|flag|ctf|synt|galf)[\x20-\x7E]{5,40}', re.I),
-                (r'k[\x20-\x7E]?e[\x20-\x7E]?y[\x20-\x7E]?(:|=|\{|is)[\x20-\x7E]{3,40}', re.I),
-                (r'f[^\w]?l[\x20-\x7E]?a[\x20-\x7E]?g[\x20-\x7E]?(:|=|\{|is)[\x20-\x7E]{3,40}', re.I),
-                (r'c[\x20-\x7E]?t[\x20-\x7E]?f[\x20-\x7E]?(?::|=|\{|is)[\x20-\x7E]{3,40}', re.I),
-                (r's[\x20-\x7E]?y[\x20-\x7E]?n[\x20-\x7E]?t[\x20-\x7E]?(:|=|\{|is)[\x20-\x7E]{3,40}', re.I),
-                (r'g[\x20-\x7E]?a[\x20-\x7E]?l[\x20-\x7E]?f[\x20-\x7E]?(:|=|\{|is)[\x20-\x7E]{3,40}', re.I),
+                (r'k[\x20-\x7E]?e[\x20-\x7E]?y[\x20-\x7E]?(\s|:|=|\{|is)[\x20-\x7E]{3,40}', re.I),
+                (r'f[^\w]?l[\x20-\x7E]?a[\x20-\x7E]?g[\x20-\x7E]?(\s|:|=|\{|is)[\x20-\x7E]{3,40}', re.I),
+                (r'c[\x20-\x7E]?t[\x20-\x7E]?f[\x20-\x7E]?(\s|:|=|\{|is)[\x20-\x7E]{3,40}', re.I),
+                (r's[\x20-\x7E]?y[\x20-\x7E]?n[\x20-\x7E]?t[\x20-\x7E]?(\s|:|=|\{|is)[\x20-\x7E]{3,40}', re.I),
+                (r'g[\x20-\x7E]?a[\x20-\x7E]?l[\x20-\x7E]?f[\x20-\x7E]?(\s|:|=|\{|is)[\x20-\x7E]{3,40}', re.I),
             ]
 
             pattern_list = [re.compile(*r) for r in re_list]
@@ -597,7 +597,7 @@ class WhatSteg(object):
 
         def re_match_flag_2(a):
             re_list = [
-                (r'(key|flag|ctf|synt|galf)(:|=|\{|is)[\x20-\x7E]{5,40}\}', re.I),
+                (r'(key|flag|ctf|synt|galf)(\s|:|=|\{|is)[\x20-\x7E]{5,40}', re.I),
             ]
 
             pattern_list = [re.compile(*r) for r in re_list]

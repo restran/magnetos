@@ -43,7 +43,12 @@ def get_flag_from_file(file_path, strict_mode=False, result_dict=None):
         # (r'(?:key|flag|ctf)\{[^\{\}]{3,35}\}', re.I),
         # (r'(?:key|KEY|flag|FLAG|ctf|CTF)+[\x20-\x7E]{3,50}', re.I),
         (r'(?:key|flag|ctf|synt|galf)[\x20-\x7E]{5,40}', re.I),
-        (r'(?:key|flag|ctf|synt|galf)[\x20-\x7E]{0,3}(?::|=|\{|is)[\x20-\x7E]{,40}', re.I),
+        # (r'(?:key|flag|ctf|synt|galf)[\x20-\x7E]{0,3}(?::|=|\{|is)[\x20-\x7E]{,40}', re.I),
+        (r'k.{0,3}e.{0,3}y[\x20-\x7E]{0,3}(?::|=|\{|is)[\x20-\x7E]{3,40}', re.I),
+        (r'f.{0,3}l.{0,3}a.{0,3}g[\x20-\x7E]{0,3}(?::|=|\{|is)[\x20-\x7E]{3,40}', re.I),
+        (r'c.{0,3}t.{0,3}f.{0,3}[\x20-\x7E]{0,3}(?::|=|\{|is)[\x20-\x7E]{3,40}', re.I),
+        (r's.{0,3}y.{0,3}n.{0,3}t[\x20-\x7E]{0,3}(?::|=|\{|is)[\x20-\x7E]{3,40}', re.I),
+        (r'g.{0,3}a.{0,3}l.{0,3}f[\x20-\x7E]{0,3}(?::|=|\{|is)[\x20-\x7E]{3,40}', re.I),
     ]
 
     if not strict_mode:

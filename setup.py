@@ -2,8 +2,7 @@
 # Created by restran on 2017/7/27
 from __future__ import unicode_literals
 import sys
-
-import pypandoc
+import os
 from setuptools import setup, find_packages
 
 from magnetos import __version__
@@ -30,19 +29,19 @@ if sys.version_info < (3, 0):
 
 kwargs['install_requires'] = install_requires
 
-# converts markdown to reStructured
-z = pypandoc.convert('README.md', 'rst', format='markdown')
 
+if os.path.exists('README.rst'):
+    readme_file = 'README.rst'
+else:
+    readme_file = 'README.md'
 # writes converted file
-with open('README.rst', 'w') as outfile:
-    outfile.write(z)
-
-long_description = z
+with open(readme_file, 'r') as f:
+    long_description = f.read()
 
 setup(
     name='magnetos',  # 文件名
     version=__version__,  # 版本(每次更新上传 pypi 需要修改)
-    description="Toolkit for security scripts developing.",
+    description="Some hacker scripts.",
     long_description=long_description,  # 放README.md文件，方便在 pypi 页展示
     classifiers=[
         'Programming Language :: Python :: 2',
@@ -55,7 +54,7 @@ setup(
         'Programming Language :: Python :: Implementation :: CPython',
         'Programming Language :: Python :: Implementation :: PyPy',
     ],  # Get strings from http://pypi.python.org/pypi?:action=list_classifiers
-    keywords='python util',  # 关键字
+    keywords='python utils',  # 关键字
     author='restran',  # 用户名
     author_email='grestran@gmail.com',  # 邮箱
     url='https://github.com/restran/mountains',  # github上的地址
@@ -73,6 +72,7 @@ setup(
             'file_strings = magnetos.utils.file_strings:main',
             'find_ctf_flag = magnetos.utils.find_ctf_flag:main',
             'reverse_proxy = magnetos.proxy.reverse_proxy:main',
+            'steg_hide_break = magnetos.cracker.steg_hide_break:main',
         ],
     },
     **kwargs

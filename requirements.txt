@@ -2,4 +2,5 @@ pycipher
 future
 tornado
 validators
-mountains>=0.5.4
+mountains>=0.6.2
+pillow
