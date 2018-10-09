@@ -517,8 +517,11 @@ class WhatSteg(object):
 
     @classmethod
     def remove_dir(cls, dir_path):
-        if os.path.exists(dir_path):
-            shutil.rmtree(dir_path)
+        try:
+            if os.path.exists(dir_path):
+                shutil.rmtree(dir_path, ignore_errors=True)
+        except:
+            pass
 
     def binwalk(self):
         logger.info('\n--------------------')
