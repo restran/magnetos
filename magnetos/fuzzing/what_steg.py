@@ -529,7 +529,7 @@ class WhatSteg(object):
         cmd = 'binwalk -v -M -e -C %s %s' % (out_path, self.file_path)
         stdout = self.run_shell_cmd(cmd)
         # 不要输出那么多
-        logger.info(stdout.splitlines()[:20])
+        logger.info('\n'.join(stdout.splitlines()[:20]))
         self.process_binwalk_unknown(out_path)
 
     def process_binwalk_unknown(self, binwalk_path):
@@ -544,7 +544,7 @@ class WhatSteg(object):
                     cmd = 'what_format -f %s -o %s -e bmp -e gif -e pdf' % (path, out_path)
                     stdout = self.run_shell_cmd(cmd)
                     logger.info(out_path)
-                    logger.info(stdout)
+                    logger.info('\n'.join(stdout.splitlines()[:20]))
 
     def foremost(self):
         logger.info('\n--------------------')
@@ -554,7 +554,7 @@ class WhatSteg(object):
         cmd = 'foremost -o %s %s' % (out_path, self.file_path)
         stdout = self.run_shell_cmd(cmd)
         # 不要输出那么多
-        logger.info(stdout.splitlines()[:20])
+        logger.info('\n'.join(stdout.splitlines()[:20]))
 
     def what_format(self):
         logger.info('\n--------------------')
@@ -564,7 +564,7 @@ class WhatSteg(object):
         cmd = 'what_format -f %s -o %s -e bmp -e gif -e pdf' % (self.file_path, out_path)
         stdout = self.run_shell_cmd(cmd)
         # 不要输出那么多
-        logger.info(stdout.splitlines()[:30])
+        logger.info('\n'.join(stdout.splitlines()[:30]))
 
     def run_exif_tool(self):
         if self.file_type not in ['bmp', 'png', 'jpg', 'jpeg', 'gif']:
@@ -579,7 +579,7 @@ class WhatSteg(object):
     def clean_find_ctf_flag_result(self, result):
         def re_match_flag(a):
             re_list = [
-                (r'(key|flag|ctf|synt|galf)[\x20-\x7E]{5,40}', re.I),
+                (r'(key|flag|ctf|synt|galf)[\x20-\x7E]{5,41}', re.I),
                 (r'k[\x20-\x7E]?e[\x20-\x7E]?y[\x20-\x7E]?(\s|:|=|\{|is)[\x20-\x7E]{3,40}', re.I),
                 (r'f[^\w]?l[\x20-\x7E]?a[\x20-\x7E]?g[\x20-\x7E]?(\s|:|=|\{|is)[\x20-\x7E]{3,40}', re.I),
                 (r'c[\x20-\x7E]?t[\x20-\x7E]?f[\x20-\x7E]?(\s|:|=|\{|is)[\x20-\x7E]{3,40}', re.I),

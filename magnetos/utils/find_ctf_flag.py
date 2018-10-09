@@ -22,7 +22,11 @@ parser.add_option("-s", "--strict mode", dest="strict_mode",
 
 def get_flag_from_file(file_path, strict_mode=False, result_dict=None):
     if not os.path.exists(file_path):
-        return
+        if result_dict is not None:
+            result = '\n'.join(result_dict.keys())
+        else:
+            result = ''
+        return result
 
     with open(file_path, 'rb') as f:
         data = f.read()
@@ -42,7 +46,7 @@ def get_flag_from_file(file_path, strict_mode=False, result_dict=None):
     re_list = [
         # (r'(?:key|flag|ctf)\{[^\{\}]{3,35}\}', re.I),
         # (r'(?:key|KEY|flag|FLAG|ctf|CTF)+[\x20-\x7E]{3,50}', re.I),
-        (r'(?:key|flag|ctf|synt|galf)[\x20-\x7E]{5,40}', re.I),
+        (r'(?:key|flag|ctf|synt|galf)[\x20-\x7E]{5,41}', re.I),
         # (r'(?:key|flag|ctf|synt|galf)[\x20-\x7E]{0,3}(?::|=|\{|is)[\x20-\x7E]{,40}', re.I),
         (r'k.{0,3}e.{0,3}y[\x20-\x7E]{0,3}(?::|=|\{|is)[\x20-\x7E]{3,40}', re.I),
         (r'f.{0,3}l.{0,3}a.{0,3}g[\x20-\x7E]{0,3}(?::|=|\{|is)[\x20-\x7E]{3,40}', re.I),
@@ -54,8 +58,8 @@ def get_flag_from_file(file_path, strict_mode=False, result_dict=None):
     if not strict_mode:
         re_list.extend([
             (r'[a-z0-9]{0,8}[\x20-\x7E]{0,3}\{[\x20-\x7E]{4,40}\}', re.I),
-            (r'[\x20-\x7E]{0,8}[a-z0-9]{16}[\x20-\x7E]{0,5}', re.I),
-            (r'[\x20-\x7E]{0,8}[a-z0-9]{32}[\x20-\x7E]{0,5}', re.I),
+            (r'[\x20-\x7E]{0,8}[a-zA-Z0-9_]{16}[\x20-\x7E]{0,5}', re.I),
+            (r'[\x20-\x7E]{0,8}[a-zA-Z0-9_]{32}[\x20-\x7E]{0,5}', re.I),
         ])
 
     if result_dict is None:

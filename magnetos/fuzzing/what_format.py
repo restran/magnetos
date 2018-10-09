@@ -2,12 +2,12 @@
 # created by restran on 2016/09/30
 from __future__ import unicode_literals, absolute_import
 
-import os
-import sys
 import binascii
+import os
 import traceback
-from mountains.encoding import utf8, to_unicode
 from optparse import OptionParser
+
+from mountains.encoding import utf8, force_text
 
 # 当前项目所在路径
 BASE_PATH = os.path.dirname(os.path.abspath(__file__))
@@ -34,20 +34,23 @@ class WhatFormat(object):
             self.exclude = []
 
         self.exclude = [v.lower() for v in self.exclude]
+        if len(self.exclude) > 0:
+            print('[*] Exclude File Type: %s' % ', '.join(self.exclude))
 
     def load_dict(self, file_name):
         dict_list = []
         with open(file_name, 'rb') as f:
             for line in f:
-                line = to_unicode(line).strip()
+                line = force_text(line).strip()
                 if line != '' and not line.startswith('#'):
                     ext, des, hex_start, hex_end = line.split('::')
                     hex_start = hex_start.lower().replace(' ', '')
                     hex_end = hex_end.lower().replace(' ', '')
+                    ext = ext.strip().lower()
                     if ext.lower() in self.exclude:
                         continue
                     item = [ext, des, hex_start, hex_end]
-                    item = tuple([to_unicode(t.strip()) for t in item])
+                    item = tuple([force_text(t.strip()) for t in item])
                     dict_list.append(item)
 
         return dict_list
@@ -61,7 +64,7 @@ class WhatFormat(object):
         ''' % (file_name, str(size / 1024)))
         with open(file_name, 'rb') as f:
             data = f.read()
-            hex_data = to_unicode(binascii.hexlify(data))
+            hex_data = force_text(binascii.hexlify(data))
 
         self.hex_data = hex_data
         return hex_data
