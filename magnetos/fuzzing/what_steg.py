@@ -3,6 +3,7 @@
 from __future__ import unicode_literals, absolute_import
 
 import hashlib
+import json
 import os
 import re
 import shutil
@@ -66,6 +67,7 @@ class WhatSteg(object):
 
         self.extract_file_md5_dict = {}
         self.log_file_name = 'log.txt'
+        self.file_img_size = None
 
         # 删除旧的数据
         self.remove_dir(self.output_path)
@@ -120,6 +122,8 @@ class WhatSteg(object):
             logger.info(stdout)
             if 'CRC error' in stdout:
                 self.result_list.append('[*] PNG 文件 CRC 错误，请检查图片的大小是否有被修改')
+                if '666c6167' in stdout:
+                    logger.warning('检测到 flag 特征数据，666c6167 -> flag')
 
             out_list = stdout.split('\n')
             last_length = None
@@ -151,9 +155,7 @@ class WhatSteg(object):
         with open(self.file_path, 'rb') as f:
             data = f.read()
 
-        im = Image.open(self.file_path)
-        # 获得图像尺寸:
-        w, h = im.size
+        w, h = self.file_img_size
 
         if self.file_type == 'png':
             bytes_data = data[12:33]
@@ -172,6 +174,7 @@ class WhatSteg(object):
                     if crc32_result == crc32:
                         logger.warning('[*] 找到正确的图片高度: %s' % i)
                         new_h = i
+                        break
                 else:
                     # linux 下，如果 png 图片高度改得太大，会无法打开，windows 下可以打开
                     logger.warning('[*] 未找到正确的图片高度，自动修改为2倍，请在Windows下打开')
@@ -217,9 +220,6 @@ class WhatSteg(object):
                     write_bytes_file(out_path, data)
                     break
         elif self.file_type == 'bmp':
-            im = Image.open(self.file_path)
-            # 获得图像尺寸:
-            w, h = im.size
             file_size = os.path.getsize(self.file_path)
             bit_count = data[28:30]
             # 1个像素占用多少字节，这个值一般是24或者32，bmp 图片使用小端序
@@ -255,6 +255,15 @@ class WhatSteg(object):
             self.file_type = 'bmp'
         else:
             self.file_type = os.path.splitext(self.file_path)[1].lstrip('.')
+
+        if self.file_type in ('png', 'jpg', 'bmp'):
+            try:
+                im = Image.open(self.file_path)
+                # 获得图像尺寸
+                # w, h
+                self.file_img_size = im.size
+            except:
+                self.file_img_size = None
 
         self.file_type = self.file_type.lower()
         stdout = stdout.replace(self.file_path, '').strip()
@@ -595,8 +604,19 @@ class WhatSteg(object):
 
         logger.info('\n--------------------')
         logger.info('run exiftool')
-        cmd = 'exiftool %s' % self.file_path
+        # -j 将结果输出为json格式
+        cmd = 'exiftool -j %s' % self.file_path
         stdout = self.run_shell_cmd(cmd)
+
+        if self.file_img_size is None:
+            try:
+                json_data = json.loads(stdout)
+                if len(json_data) > 0:
+                    json_data = json_data[0]
+                self.file_img_size = (json_data['ImageWidth'], json_data['ImageHeight'])
+            except:
+                pass
+
         logger.info(stdout)
 
     def clean_find_ctf_flag_result(self, result):
@@ -684,8 +704,6 @@ class WhatSteg(object):
         检查一些异常的文件头，例如将 Rar! 改成 raR!
         :return:
         """
-        logger.info('\n--------------------')
-        logger.info('run exiftool')
         file_path = os.path.join(self.output_path, 'strings_1.txt')
         with open(file_path, 'r') as f:
             data = f.read()

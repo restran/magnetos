@@ -13,7 +13,8 @@ Toolkit for security scripts developing.
 - exiftool
 
 ```
-apt install exiftool pngcheck
+apt install pngcheck
+apt install libimage-exiftool-perl
 gem install zsteg
 dpkg -i stegdetect_0.6-6_amd64
 ```

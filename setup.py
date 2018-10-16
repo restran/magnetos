@@ -57,7 +57,7 @@ setup(
     keywords='python utils',  # 关键字
     author='restran',  # 用户名
     author_email='grestran@gmail.com',  # 邮箱
-    url='https://github.com/restran/mountains',  # github上的地址
+    url='https://github.com/restran/magnetos',  # github上的地址
     license='MIT',  # 遵循的协议
     include_package_data=True,
     zip_safe=True,
