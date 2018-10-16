@@ -37,6 +37,8 @@ parser.add_option("-s", "--flag_strict_mode", dest="flag_strict_mode", default=F
 
 TODO 文件中可见字符的处理，对于 \00 这种分隔开的字符，需要能够分离
 
+有些RAR等压缩包的文件头被修改，例如改成raR!，可以搜索strings里面的文本是否有符合的特征字符串，做个提醒
+
 FFD9 后的文件内容显示出来
 """
 
@@ -55,7 +57,7 @@ class WhatSteg(object):
         self.file_ext = os.path.splitext(base_name)[1]
 
         # 文件类型
-        self.file_type = None
+        self.file_type = ''
 
         self.output_path = os.path.join(self.current_path, 'output_%s' % base_name)
         self.flag_strict_mode = flag_strict_mode
@@ -149,36 +151,46 @@ class WhatSteg(object):
         with open(self.file_path, 'rb') as f:
             data = f.read()
 
+        im = Image.open(self.file_path)
+        # 获得图像尺寸:
+        w, h = im.size
+
         if self.file_type == 'png':
             bytes_data = data[12:33]
             crc32 = bytes_data[-4:]
             crc32 = struct.unpack('>i', crc32)[0]
 
+            new_h = h * 2
             if binascii.crc32(bytes_data[:-4]) & 0xffffffff != crc32:
-                logger.warning('PNG图片宽高CRC32校验失败，文件宽高被修改过')
-                logger.warning('尝试爆破图片高度')
+                logger.warning('[*] PNG图片宽高CRC32校验失败，文件宽高被修改过')
+                logger.warning('[*] 尝试爆破图片高度')
+                new_h = h * 2
                 for i in range(1, 65535):
                     height = struct.pack('>i', i)
                     check_data = bytes_data[:8] + height + bytes_data[-9:-4]
                     crc32_result = binascii.crc32(check_data) & 0xffffffff
                     if crc32_result == crc32:
-                        logger.warning('找到正确的图片高度: %s' % i)
-                        for x in range(4):
-                            data = bytearray(data)
-                            data[20 + x] = height[x]
-                            data = bytes(data)
-
-                        logger.warning('保存修复后的文件: fix_height.png')
-                        out_path = os.path.join(self.output_path, 'fix_height.png')
-                        write_bytes_file(out_path, data)
-                        break
+                        logger.warning('[*] 找到正确的图片高度: %s' % i)
+                        new_h = i
                 else:
-                    logger.warning('未找到正确的图片高度，请手动修改')
+                    # linux 下，如果 png 图片高度改得太大，会无法打开，windows 下可以打开
+                    logger.warning('[*] 未找到正确的图片高度，自动修改为2倍，请在Windows下打开')
+
+            for x in range(4):
+                height = struct.pack('>i', new_h)
+                data = bytearray(data)
+                data[20 + x] = height[x]
+                data = bytes(data)
+
+            logger.warning('[*] 保存扩展高度后的文件: fix_height.png')
+            out_path = os.path.join(self.output_path, 'fix_height.png')
+            write_bytes_file(out_path, data)
+
         elif self.file_type == 'jpg':
-            im = Image.open(self.file_path)
-            # 获得图像尺寸:
-            w, h = im.size
-            print(w, h)
+            # im = Image.open(self.file_path)
+            # # 获得图像尺寸:
+            # w, h = im.size
+            # print(w, h)
             x_img = struct.pack('>h', w)
             y_img = struct.pack('>h', h)
             begin = 0
@@ -200,7 +212,7 @@ class WhatSteg(object):
                         data[x + y_i] = new_height[y_i]
                         data = bytes(data)
 
-                    logger.warning('保存扩展高度后的文件: enlarge_height.jpg')
+                    logger.warning('[*] 保存扩展高度后的文件: enlarge_height.jpg')
                     out_path = os.path.join(self.output_path, 'enlarge_height.jpg')
                     write_bytes_file(out_path, data)
                     break
@@ -213,12 +225,12 @@ class WhatSteg(object):
             # 1个像素占用多少字节，这个值一般是24或者32，bmp 图片使用小端序
             bit_count = struct.unpack('<h', bit_count)[0]
             if bit_count not in (24, 32):
-                logger.warning('异常的 bmp bit count %s' % bit_count)
+                logger.warning('[*] 异常的 bmp bit count %s' % bit_count)
             real_height = int((file_size - 54) / (bit_count / 8) / w)
 
             if h != real_height:
-                logger.warning('图片高度不正确，或者图片末尾附加了数据')
-                logger.warning('正确的高度为: %s' % real_height)
+                logger.warning('[*] 图片高度不正确，或者图片末尾附加了数据')
+                logger.warning('[*] 正确的高度为: %s' % real_height)
                 # bmp 图片使用小端序
                 y_img = struct.pack('<i', real_height)
                 for x in range(4):
@@ -226,12 +238,12 @@ class WhatSteg(object):
                     data[22 + x] = y_img[x]
                     data = bytes(data)
 
-                logger.warning('保存扩展高度后的文件: enlarge_height.bmp')
+                logger.warning('[*] 保存扩展高度后的文件: enlarge_height.bmp')
                 out_path = os.path.join(self.output_path, 'enlarge_height.bmp')
                 write_bytes_file(out_path, data)
 
     def check_file(self):
-        logger.info('\n--------------------')
+        logger.info('--------------------')
         logger.info('run file')
         cmd = 'file %s' % self.file_path
         stdout = self.run_shell_cmd(cmd)
@@ -241,6 +253,10 @@ class WhatSteg(object):
             self.file_type = 'jpg'
         elif 'bitmap' in stdout:
             self.file_type = 'bmp'
+        else:
+            self.file_type = os.path.splitext(self.file_path)[1].lstrip('.')
+
+        self.file_type = self.file_type.lower()
         stdout = stdout.replace(self.file_path, '').strip()
         stdout = stdout[2:]
         self.result_list.append('[*] 文件类型: %s' % self.file_type)
@@ -418,7 +434,8 @@ class WhatSteg(object):
             'strings_2.txt',
             'zsteg.txt',
             'zsteg_text.txt',
-            'log.txt'
+            'log.txt',
+            'enlarge_height.{}'.format(self.file_type)
         ]
         exclude_file_list = [
             os.path.join(self.output_path, t)
@@ -494,8 +511,11 @@ class WhatSteg(object):
                         f_name = '%s' % i
 
                 p = os.path.join(path, f_name)
-                # 移动文件
-                shutil.move(f_p, p)
+                try:
+                    # 移动文件
+                    shutil.move(f_p, p)
+                except Exception as e:
+                    logger.error(e)
                 file_size = os.path.getsize(p) / 1024.0
                 self.result_list.append('    %s: %.3fKB' % (i, file_size))
 
@@ -659,6 +679,48 @@ class WhatSteg(object):
         for x in result_list[max_line:]:
             logger.debug(x)
 
+    def check_abnormal_file_magic(self):
+        """
+        检查一些异常的文件头，例如将 Rar! 改成 raR!
+        :return:
+        """
+        logger.info('\n--------------------')
+        logger.info('run exiftool')
+        file_path = os.path.join(self.output_path, 'strings_1.txt')
+        with open(file_path, 'r') as f:
+            data = f.read()
+
+        magic_dict = {
+            'RAR!': 'rar',
+            'PK': 'zip',
+            'PNG': 'png',
+            'JFIF': 'jpg'
+        }
+
+        re_list = [
+            (r'({})'.format('|'.join(magic_dict)), re.I),
+        ]
+
+        result_dict = {}
+        for r, option in re_list:
+            if option is not None:
+                pattern = re.compile(r, option)
+            else:
+                pattern = re.compile(r)
+
+            ret = pattern.findall(data)
+            if len(ret) > 0:
+                ret = set([t.upper() for t in ret])
+                for t in ret:
+                    t = magic_dict.get(t, t)
+                    if t not in result_dict:
+                        result_dict[t] = None
+
+        file_list = [t.lower() for t in result_dict.keys() if t.lower() != self.file_type]
+        if len(file_list) > 0:
+            logger.warning('[*] 文件中可能存在（误报率较高，仅参考）： {}'.format(', '.join(file_list)))
+            logger.warning('[*] 请检查文件尾是否有附加数据')
+
     def run(self):
         self.check_file()
         self.strings()
@@ -672,6 +734,7 @@ class WhatSteg(object):
         self.check_extracted_file()
         self.run_exif_tool()
         self.img_height_check()
+        self.check_abnormal_file_magic()
 
         logger.info('\n--------------------')
         for t in self.result_list:

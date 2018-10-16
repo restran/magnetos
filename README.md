@@ -5,6 +5,20 @@
 
 Toolkit for security scripts developing.
 
+## 依赖的第三方工具
+
+- zsteg
+- pngcheck
+- [stegdetect](https://github.com/abeluck/stegdetect) 
+- exiftool
+
+```
+apt install exiftool pngcheck
+gem install zsteg
+dpkg -i stegdetect_0.6-6_amd64
+```
+
+
 ## Upload to PyPi
 
 安装最新的 setuptools
