@@ -193,8 +193,8 @@ class WhatSteg(object):
                 if sz_section - 8 != nr_comp * 3:
                     begin = x
                 else:
-                    # jpg可以任意增加高度，不会影响显示，图片高度增加为1.1倍
-                    new_height = struct.pack('>h', int(h * 1.2))
+                    # jpg可以任意增加高度，不会影响显示，图片高度增加为2倍
+                    new_height = struct.pack('>h', int(h * 2))
                     for y_i in range(2):
                         data = bytearray(data)
                         data[x + y_i] = new_height[y_i]
