@@ -16,7 +16,8 @@ Toolkit for security scripts developing.
 apt install pngcheck
 apt install libimage-exiftool-perl
 gem install zsteg
-dpkg -i stegdetect_0.6-6_amd64
+wget http://launchpadlibrarian.net/16746333/stegdetect_0.6-6_amd64.deb
+dpkg -i stegdetect_0.6-6_amd64.deb
 ```
 
 ## 安装方法
