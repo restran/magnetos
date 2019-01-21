@@ -122,8 +122,20 @@ class WhatSteg(object):
             logger.info(stdout)
             if 'CRC error' in stdout:
                 self.result_list.append('[*] PNG 文件 CRC 错误，请检查图片的大小是否有被修改')
-                if '666c6167' in stdout:
-                    logger.warning('检测到 flag 特征数据，666c6167 -> flag')
+                pattern = r'\(computed\s([0-9a-zA-Z]{8})\,\sexpected\s([0-9a-zA-Z]{8})\)'
+                keywords = ['flag', 'synt']
+                for line in stdout.splitlines():
+                    r = re.search(pattern, line)
+                    if not r:
+                        continue
+
+                    for t in r.groups():
+                        try:
+                            x = hex2str(t)
+                            if x.lower() in keywords:
+                                logger.warning('检测到 flag 特征数据，{} -> {}'.format(t, x))
+                        except:
+                            pass
 
             out_list = stdout.split('\n')
             last_length = None

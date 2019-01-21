@@ -19,22 +19,20 @@ gem install zsteg
 dpkg -i stegdetect_0.6-6_amd64
 ```
 
+## 安装方法
 
-## Upload to PyPi
+    pip3 install magnetos
 
-安装最新的 setuptools
+## 提供的工具
 
-    pip3 install -U pip setuptools twine
+以下工具可以在命令下直接执行
 
-生成 wheel 包
-
-    python3 setup.py register bdist_wheel --universal upload
-
-生成 tar.gz 包，因为 setup.py 用到了 pypandoc，安装的时候会需要依赖
-
-    python3 setup.py register sdist upload
-
-## 通过 setup install 安装后删除
-
-    python3 setup.py install --record files.txt
-    cat files.txt | xargs rm -rf
+- what_format
+- what_code_scheme
+- what_encode
+- what_steg CTF隐写自动化解题工具
+- file_hash
+- file_strings
+- find_ctf_flag
+- reverse_proxy
+- steg_hide_break
