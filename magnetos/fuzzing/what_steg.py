@@ -338,26 +338,38 @@ class WhatSteg(object):
                         md5 = hashlib.md5(force_bytes(line)).hexdigest()
                         if md5 not in zsteg_text_dict:
                             zsteg_text_dict[md5] = line
-                        continue
 
-                    if t[0] not in line:
-                        continue
+                        # 凭经验设置的一个大概的值，zsteg 日志没有将所有的文本输出
+                        # 如果输出的内容比较长的情况下，就要考虑将文本文件提取出来
+                        if len(line) <= 120:
+                            break
+                        else:
+                            index = line.find('.. text: "')
+                            zsteg_payload = line[:index].rstrip(' .').strip()
+                            extract_file_ext = 'txt'
+                            extract_file_type = 'txt'
+                    else: 
+                        if t[0] not in line:
+                            continue
+                        else:
+                            index = line.find(t[0])
+                            zsteg_payload = line[:index].rstrip(' .').strip()
+                            extract_file_ext = t[1]
+                            extract_file_type = t[0][len(' file: '):]
 
-                    index = line.find(t[0])
-                    if index > 0:
-                        # 检测到文件后，自动导出文件
-                        zsteg_payload = line[:index].rstrip(' .').strip()
-                        if len(zsteg_payload.split(',')) > 0:
-                            f_name = '%s_%s.%s' % (line_count, i, t[1])
-                            out_file_path = os.path.join(out_path, f_name)
-                            cmd = "zsteg %s -E '%s' > %s" % (
-                                self.file_path, zsteg_payload, out_file_path)
-                            logger.warning('[*] zsteg 检测到文件 %s' % line.strip())
-                            self.run_shell_cmd(cmd)
+                    # 检测到文件后，自动导出文件
+                    if len(zsteg_payload.split(',')) > 0:
+                        f_name = '%s_%s.%s' % (line_count, i, extract_file_ext)
+                        out_file_path = os.path.join(out_path, f_name)
+                        cmd = "zsteg %s -E '%s' > %s" % (
+                            self.file_path, zsteg_payload, out_file_path)
+                        logger.warning('[*] zsteg 检测到文件 %s' % line.strip())
+                        self.run_shell_cmd(cmd)
 
                     msg = '[*] zsteg日志第%d行检测到文件%s' % (
-                        line_count, t[0][len(' file: '):])
+                        line_count, extract_file_type)
                     self.result_list.append(msg)
+                    break
 
         text_out_file = os.path.join(self.output_path, 'zsteg_text.txt')
         with open(text_out_file, 'w') as f:
