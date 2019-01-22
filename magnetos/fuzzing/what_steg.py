@@ -20,7 +20,7 @@ from mountains import logging
 from mountains.logging import ColorStreamHandler, FileHandler
 
 from ..utils import find_ctf_flag, file_strings
-from ..utils.converter import partial_base64_decode
+from ..utils.converter import partial_base64_decode, hex2str
 
 parser = OptionParser()
 parser.add_option("-f", "--file_name", dest="file_name", type="string",
@@ -348,7 +348,7 @@ class WhatSteg(object):
                             zsteg_payload = line[:index].rstrip(' .').strip()
                             extract_file_ext = 'txt'
                             extract_file_type = 'txt'
-                    else: 
+                    else:
                         if t[0] not in line:
                             continue
                         else:
@@ -410,7 +410,9 @@ class WhatSteg(object):
                 self.result_list.append(text)
             if 'jphide' in stdout:
                 text = '[*] 使用了 jphide 隐写，如果没有提供密码，可以先用 Jphswin.exe 试一下空密码，再用 stegbreak 用弱口令爆破'
+                self.result_list.append(text)
                 text = '[*] 也有可能是 steghide 隐写，如果没有提供密码，可以用 steg_hide_break 用弱口令爆破'
+                self.result_list.append(text)
                 text = '[*] 也有可能是 outguess 隐写，outguess -r in.jpg out.txt'
                 self.result_list.append(text)
                 text = '    注意，jphide 的检测很可能会出现误报，可以尝试'
@@ -643,86 +645,6 @@ class WhatSteg(object):
 
         logger.info(stdout)
 
-    def clean_find_ctf_flag_result(self, result):
-        def re_match_flag(a):
-            re_list = [
-                (r'(key|flag|ctf|synt|galf)[\x20-\x7E]{5,41}', re.I),
-                (r'k[\x20-\x7E]?e[\x20-\x7E]?y[\x20-\x7E]?(\s|:|=|\{|is)[\x20-\x7E]{3,40}', re.I),
-                (r'f[^\w]?l[\x20-\x7E]?a[\x20-\x7E]?g[\x20-\x7E]?(\s|:|=|\{|is)[\x20-\x7E]{3,40}', re.I),
-                (r'c[\x20-\x7E]?t[\x20-\x7E]?f[\x20-\x7E]?(\s|:|=|\{|is)[\x20-\x7E]{3,40}', re.I),
-                (r's[\x20-\x7E]?y[\x20-\x7E]?n[\x20-\x7E]?t[\x20-\x7E]?(\s|:|=|\{|is)[\x20-\x7E]{3,40}', re.I),
-                (r'g[\x20-\x7E]?a[\x20-\x7E]?l[\x20-\x7E]?f[\x20-\x7E]?(\s|:|=|\{|is)[\x20-\x7E]{3,40}', re.I),
-            ]
-
-            pattern_list = [re.compile(*r) for r in re_list]
-            for p in pattern_list:
-                r = p.search(a)
-                if r:
-                    return True
-            else:
-                return False
-
-        def re_match_flag_2(a):
-            re_list = [
-                (r'(key|flag|ctf|synt|galf)(\s|:|=|\{|is)[\x20-\x7E]{5,40}', re.I),
-            ]
-
-            pattern_list = [re.compile(*r) for r in re_list]
-            for p in pattern_list:
-                r = p.search(a)
-                if r:
-                    return True
-            else:
-                return False
-
-        def math_flag_bracket(a):
-            count = 0
-            if '{' in a:
-                count += 1
-            if '}' in a:
-                count += 1
-
-            return count
-
-        def sort_result(a, b):
-            found_a = re_match_flag(a)
-            found_b = re_match_flag(b)
-
-            if found_a and not found_b:
-                return 1
-            elif not found_a and found_b:
-                return -1
-            else:
-                # 使用更精确的flag特征判断
-                found_a = re_match_flag_2(a)
-                found_b = re_match_flag_2(b)
-                if found_a and not found_b:
-                    return 1
-                elif not found_a and found_b:
-                    return -1
-                else:
-                    # 如果有括号，则准确度更高
-                    count_a_bracket = math_flag_bracket(a)
-                    count_b_bracket = math_flag_bracket(b)
-                    if count_a_bracket > count_b_bracket:
-                        return 1
-                    elif count_a_bracket < count_b_bracket:
-                        return -1
-
-                return 0
-
-        result_list = result.splitlines()
-        result_list = sorted(result_list, key=cmp_to_key(sort_result), reverse=True)
-
-        max_line = 20
-        if len(result_list) > max_line:
-            logger.info('匹配的内容较多，只显示前%s条，更多数据在日志文件中查看' % max_line)
-
-        for x in result_list[:max_line]:
-            logger.warning(x)
-        for x in result_list[max_line:]:
-            logger.debug(x)
-
     def check_abnormal_file_magic(self):
         """
         检查一些异常的文件头，例如将 Rar! 改成 raR!
@@ -763,6 +685,43 @@ class WhatSteg(object):
             logger.warning('[*] 文件中可能存在（误报率较高，仅参考）： {}'.format(', '.join(file_list)))
             logger.warning('[*] 请检查文件尾是否有附加数据')
 
+    def find_flag(self):
+        """
+        自动查找可能的 flag
+        :return:
+        """
+        logger.info('\n--------------------')
+        logger.info('尝试从文件文本中提取 flag')
+        find_flag_result_dict = {}
+        # zsteg 日志文件，因为有16进制数据，如果不用严格模式，会有很多误报的数据
+        zsteg_file = os.path.join(self.output_path, 'zsteg.txt')
+        find_ctf_flag.get_flag_from_file(zsteg_file, True, find_flag_result_dict)
+        strings_file = os.path.join(self.output_path, 'strings_1.txt')
+        find_ctf_flag.get_flag_from_file(strings_file, self.flag_strict_mode, find_flag_result_dict)
+        strings_file = os.path.join(self.output_path, 'strings_2.txt')
+        find_ctf_flag.get_flag_from_file(strings_file, self.flag_strict_mode, find_flag_result_dict)
+        strings_file = os.path.join(self.output_path, 'zsteg_text.txt')
+        find_ctf_flag.get_flag_from_file(strings_file, self.flag_strict_mode, find_flag_result_dict)
+
+        # 自动从分离出的 txt 文件中查找可能的 flag
+        txt_dir = os.path.join(self.output_path, 'txt')
+        if os.path.exists(txt_dir):
+            for root, dirs, files in os.walk(txt_dir):
+                for f in files:
+                    txt_file_path = os.path.join(root, f)
+                    find_ctf_flag.get_flag_from_file(
+                        txt_file_path, self.flag_strict_mode, find_flag_result_dict)
+
+        result_list = find_ctf_flag.clean_find_ctf_flag_result('\n'.join(find_flag_result_dict.keys()))
+        max_line = 20
+        if len(result_list) > max_line:
+            logger.info('匹配的内容较多，只显示前%s条，更多数据在日志文件中查看' % max_line)
+
+        for x in result_list[:max_line]:
+            logger.warning(x)
+        for x in result_list[max_line:]:
+            logger.debug(x)
+
     def run(self):
         self.check_file()
         self.strings()
@@ -782,19 +741,8 @@ class WhatSteg(object):
         for t in self.result_list:
             logger.warning(t)
 
-        logger.info('\n--------------------')
-        logger.info('尝试从文件文本中提取 flag')
-        find_flag_result_dict = {}
-        # zsteg 日志文件，因为有16进制数据，如果不用严格模式，会有很多误报的数据
-        zsteg_file = os.path.join(self.output_path, 'zsteg.txt')
-        find_ctf_flag.get_flag_from_file(zsteg_file, True, find_flag_result_dict)
-        strings_file = os.path.join(self.output_path, 'strings_1.txt')
-        find_ctf_flag.get_flag_from_file(strings_file, self.flag_strict_mode, find_flag_result_dict)
-        strings_file = os.path.join(self.output_path, 'strings_2.txt')
-        find_ctf_flag.get_flag_from_file(strings_file, self.flag_strict_mode, find_flag_result_dict)
-        strings_file = os.path.join(self.output_path, 'zsteg_text.txt')
-        result = find_ctf_flag.get_flag_from_file(strings_file, self.flag_strict_mode, find_flag_result_dict)
-        self.clean_find_ctf_flag_result(result)
+        self.find_flag()
+
         logger.info('=======================')
 
 

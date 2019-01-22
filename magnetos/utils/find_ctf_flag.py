@@ -7,7 +7,7 @@ import re
 import string
 import traceback
 from optparse import OptionParser
-
+from functools import cmp_to_key
 from mountains.encoding import force_text
 
 from ..utils.file_strings import bytes_2_printable_strings
@@ -92,6 +92,80 @@ def get_flag_from_file(file_path, strict_mode=False, result_dict=None):
     return result
 
 
+def clean_find_ctf_flag_result(result):
+    def re_match_flag(a):
+        re_list = [
+            (r'(key|flag|ctf|synt|galf)[\x20-\x7E]{5,41}', re.I),
+            (r'[\x20-\x7E]{5,41}(yek|ftc|galf|tnys)', re.I),
+            (r'k[\x20-\x7E]?e[\x20-\x7E]?y[\x20-\x7E]?(\s|:|=|\{|is)[\x20-\x7E]{3,40}', re.I),
+            (r'f[^\w]?l[\x20-\x7E]?a[\x20-\x7E]?g[\x20-\x7E]?(\s|:|=|\{|is)[\x20-\x7E]{3,40}', re.I),
+            (r'c[\x20-\x7E]?t[\x20-\x7E]?f[\x20-\x7E]?(\s|:|=|\{|is)[\x20-\x7E]{3,40}', re.I),
+            (r's[\x20-\x7E]?y[\x20-\x7E]?n[\x20-\x7E]?t[\x20-\x7E]?(\s|:|=|\{|is)[\x20-\x7E]{3,40}', re.I),
+            (r'g[\x20-\x7E]?a[\x20-\x7E]?l[\x20-\x7E]?f[\x20-\x7E]?(\s|:|=|\{|is)[\x20-\x7E]{3,40}', re.I),
+        ]
+
+        pattern_list = [re.compile(*r) for r in re_list]
+        for p in pattern_list:
+            r = p.search(a)
+            if r:
+                return True
+        else:
+            return False
+
+    def re_match_flag_2(a):
+        re_list = [
+            (r'(key|flag|ctf|synt|galf)(\s|:|=|\{|is)[\x20-\x7E]{5,40}', re.I),
+            (r'[\x20-\x7E]{5,40}(\s|:|=|\{|is)(yek|ftc|galf|tnys)', re.I),
+        ]
+
+        pattern_list = [re.compile(*r) for r in re_list]
+        for p in pattern_list:
+            r = p.search(a)
+            if r:
+                return True
+        else:
+            return False
+
+    def math_flag_bracket(a):
+        count = 0
+        if '{' in a:
+            count += 1
+        if '}' in a:
+            count += 1
+
+        return count
+
+    def sort_result(a, b):
+        found_a = re_match_flag(a)
+        found_b = re_match_flag(b)
+
+        if found_a and not found_b:
+            return 1
+        elif not found_a and found_b:
+            return -1
+        else:
+            # 使用更精确的flag特征判断
+            found_a = re_match_flag_2(a)
+            found_b = re_match_flag_2(b)
+            if found_a and not found_b:
+                return 1
+            elif not found_a and found_b:
+                return -1
+            else:
+                # 如果有括号，则准确度更高
+                count_a_bracket = math_flag_bracket(a)
+                count_b_bracket = math_flag_bracket(b)
+                if count_a_bracket > count_b_bracket:
+                    return 1
+                elif count_a_bracket < count_b_bracket:
+                    return -1
+
+            return 0
+
+    result_list = result.splitlines()
+    return sorted(result_list, key=cmp_to_key(sort_result), reverse=True)
+
+
 def main():
     (options, args) = parser.parse_args()
 
@@ -108,7 +182,8 @@ def main():
 
     if os.path.isfile(file_name):
         result = get_flag_from_file(file_name, options.strict_mode)
-        print(result)
+        result_list = clean_find_ctf_flag_result(result)
+        print('\n'.join(result_list))
     elif os.path.isdir(file_name):
         for root, dirs, files in os.walk(file_name):
             for f in files:
