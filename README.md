@@ -1,8 +1,6 @@
 # magnetos
 
-[![travis-ci](https://travis-ci.org/restran/magnetos.svg?branch=master)](https://travis-ci.org/restran/magnetos)
-[![Coverage Status](https://coveralls.io/repos/github/restran/magnetos/badge.svg?branch=master)](https://coveralls.io/github/restran/magnetos?branch=master)
-[![pypi package](https://img.shields.io/pypi/v/magnetos.svg)](https://pypi.python.org/pypi/magnetos/)
+[![travis-ci](https://travis-ci.org/restran/magnetos.svg?branch=master)](https://travis-ci.org/restran/magnetos) [![Coverage Status](https://coveralls.io/repos/github/restran/magnetos/badge.svg?branch=master)](https://coveralls.io/github/restran/magnetos?branch=master) [![pypi package](https://img.shields.io/pypi/v/magnetos.svg)](https://pypi.python.org/pypi/magnetos/)
 
 一款帮你在 CTF 比赛中加速解题的工具
 
@@ -14,7 +12,7 @@
 
 ## 依赖的第三方工具
 
-- zsteg
+- [zsteg](https://github.com/zed-0xff/zsteg)
 - pngcheck
 - [stegdetect](https://github.com/abeluck/stegdetect) 
 - exiftool

@@ -197,7 +197,7 @@ class WhatSteg(object):
                 data[20 + x] = height[x]
                 data = bytes(data)
 
-            logger.warning('[*] 保存扩展高度后的文件: fix_height.png')
+            logger.warning('[*] 保存修正高度后的文件: fix_height.png')
             out_path = os.path.join(self.output_path, 'fix_height.png')
             write_bytes_file(out_path, data)
 
@@ -250,8 +250,9 @@ class WhatSteg(object):
                     data[22 + x] = y_img[x]
                     data = bytes(data)
 
-                logger.warning('[*] 保存扩展高度后的文件: enlarge_height.bmp')
-                out_path = os.path.join(self.output_path, 'enlarge_height.bmp')
+                logger.warning('[*] 保存修正高度后的文件: fix_height.bmp')
+                out_path = os.path.join(self.output_path, 'fix_height.bmp')
+                logger.warning('[*] bmp的高度被修改，运行zsteg可能会耗时很久')
                 write_bytes_file(out_path, data)
 
     def check_file(self):
@@ -470,7 +471,8 @@ class WhatSteg(object):
             'zsteg.txt',
             'zsteg_text.txt',
             'log.txt',
-            'enlarge_height.{}'.format(self.file_type)
+            'enlarge_height.{}'.format(self.file_type),
+            'fix_height.{}'.format(self.file_type)
         ]
         exclude_file_list = [
             os.path.join(self.output_path, t)
@@ -725,6 +727,8 @@ class WhatSteg(object):
     def run(self):
         self.check_file()
         self.strings()
+        self.run_exif_tool()
+        self.img_height_check()
         self.zsteg()
         self.binwalk()
         self.foremost()
@@ -733,8 +737,6 @@ class WhatSteg(object):
         self.stegdetect()
         self.check_strings()
         self.check_extracted_file()
-        self.run_exif_tool()
-        self.img_height_check()
         self.check_abnormal_file_magic()
 
         logger.info('\n--------------------')
