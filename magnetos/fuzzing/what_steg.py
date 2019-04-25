@@ -68,6 +68,8 @@ class WhatSteg(object):
         self.extract_file_md5_dict = {}
         self.log_file_name = 'log.txt'
         self.file_img_size = None
+        # 是否要跳过 zsteg 的处理，当bmp的图片高度被修改过，zsteg会卡住
+        self.skip_zsteg = False
 
         # 删除旧的数据
         self.remove_dir(self.output_path)
@@ -252,7 +254,8 @@ class WhatSteg(object):
 
                 logger.warning('[*] 保存修正高度后的文件: fix_height.bmp')
                 out_path = os.path.join(self.output_path, 'fix_height.bmp')
-                logger.warning('[*] bmp的高度被修改，运行zsteg可能会耗时很久')
+                logger.warning('[*] bmp的高度被修改，运行zsteg可能会耗时很久，已跳过')
+                self.skip_zsteg = True
                 write_bytes_file(out_path, data)
 
     def check_file(self):
@@ -294,6 +297,9 @@ class WhatSteg(object):
         """
         if self.file_type not in ['bmp', 'png']:
             return
+
+        if self.skip_zsteg:
+            return 
 
         logger.info('\n--------------------')
         logger.info('run zsteg')
