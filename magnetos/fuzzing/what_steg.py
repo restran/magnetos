@@ -2,25 +2,25 @@
 # Created by restran on 2017/7/30
 from __future__ import unicode_literals, absolute_import
 
+import binascii
 import hashlib
 import json
 import os
 import re
 import shutil
-import subprocess
-from functools import cmp_to_key
-import zipfile
-from PIL import Image
-from optparse import OptionParser
-import binascii
 import struct
-from mountains import text_type, force_text, force_bytes
-from mountains.file import write_bytes_file
+import subprocess
+import zipfile
+from optparse import OptionParser
+
+from PIL import Image
+from mountains import force_text, force_bytes
 from mountains import logging
+from mountains.file import write_bytes_file
 from mountains.logging import ColorStreamHandler, FileHandler
 
 from ..utils import find_ctf_flag, file_strings
-from ..utils.converter import partial_base64_decode, hex2str
+from ..utils.converter import partial_base64_decode, hex2str, bin2str
 
 parser = OptionParser()
 parser.add_option("-f", "--file_name", dest="file_name", type="string",
@@ -30,16 +30,10 @@ parser.add_option("-s", "--flag_strict_mode", dest="flag_strict_mode", default=F
 
 """
 依赖 pngcheck、zsteg、stegdetect
-"""
 
-"""
 自动检测文件可能的隐写，需要在Linux下使用 Python3 运行
 一些依赖还需要手动安装
-
-TODO 文件中可见字符的处理，对于 \00 这种分隔开的字符，需要能够分离
-
-有些RAR等压缩包的文件头被修改，例如改成raR!，可以搜索strings里面的文本是否有符合的特征字符串，做个提醒
-
+TODO:
 FFD9 后的文件内容显示出来
 """
 
@@ -55,7 +49,7 @@ class WhatSteg(object):
         self.current_path = os.path.dirname(file_path)
         base_name = os.path.basename(file_path)
         # 文件的扩展名
-        self.file_ext = os.path.splitext(base_name)[1]
+        self.file_ext = (os.path.splitext(base_name)[1]).lower()
 
         # 文件类型
         self.file_type = ''
@@ -154,6 +148,33 @@ class WhatSteg(object):
                             last_length = length
                     except:
                         pass
+
+    def gif_check(self):
+        if self.file_ext == 'gif':
+            cmd = 'identify -format "%s %T \\n" {}'.format(self.file_path)
+            try:
+                output = self.run_shell_cmd(cmd)
+                lines = output.splitlines()
+                lines = [t.split(' ')[1] for t in lines]
+                set_lines = set(lines)
+                if 2 <= len(set_lines) <= 100:
+                    logger.warning('GIF 帧间隔可能存在隐写')
+                    logger.warning(' '.join(lines))
+                    # 猜测可能是01的布尔型数据
+                    if len(set_lines) == 3:
+                        for i, t in enumerate(lines):
+                            if t != lines[0]:
+                                new_lines = ['0' if x == t else '1' for x in lines[i:]]
+                                result = bin2str(''.join(new_lines))
+                                logger.warning(result)
+                                break
+                    elif len(set_lines) == 2:
+                        new_lines = ['0' if x == lines[0] else '1' for x in lines]
+                        result = bin2str(''.join(new_lines))
+                        logger.warning(result)
+
+            except:
+                pass
 
     def img_height_check(self):
         """
@@ -299,7 +320,7 @@ class WhatSteg(object):
             return
 
         if self.skip_zsteg:
-            return 
+            return
 
         logger.info('\n--------------------')
         logger.info('run zsteg')
@@ -740,6 +761,7 @@ class WhatSteg(object):
         self.foremost()
         self.what_format()
         self.png_check()
+        self.gif_check()
         self.stegdetect()
         self.check_strings()
         self.check_extracted_file()

@@ -31,14 +31,15 @@ dpkg -i stegdetect_0.6-6_amd64.deb
 
 ## 提供的工具
 
-以下工具可以在命令下直接执行
+以下工具可以在命令行下直接执行
 
 - what_format，类似 binwalk 和 foremost，但可以分离出一些其他文件，例如 psd
 - what_code_scheme，检测编码类型
 - what_encode，自动检测文件编码并进行模糊测试
 - what_steg，隐写题目自动化解题工具
-- file_hash，计算文件hash
+- web_get，自动下载指定 URL 的所有资源到本地
+- file_hash，计算文件 hash
 - file_strings，与 strings 命令相同，但是会自动过滤掉\0
 - find_ctf_flag，根据 flag 特征从文本文件或目录中查找可能的 flag
-- reverse_proxy
-- steg_hide_break
+- reverse_proxy，反向代理
+- steg_hide_cracker，爆破 steghide 密码

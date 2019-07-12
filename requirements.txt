@@ -4,3 +4,5 @@ tornado
 validators
 mountains>=0.6.2
 pillow
+html5lib
+beautifulsoup4

@@ -7,4 +7,4 @@ from . import utils as util
 __all__ = ['util', '__author__', '__version__']
 
 __author__ = "restran <grestran@gmail.com>"
-__version__ = '0.6.5'
+__version__ = '0.7.0'
